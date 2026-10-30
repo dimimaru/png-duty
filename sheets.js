@@ -17,3 +17,26 @@ export async function fetchGoogleSheet(spreadsheetId,apiKey,signal){
  const parsed=parseSheets([...roster,...fixed]);
  return {...parsed,syncedAt:new Date().toISOString(),spreadsheetId};
 }
+
+// Optional OPD Holidays tab: A=date (YYYY-MM-DD or actual date), B=CLOSED/OPEN, C=note.
+// AP is refreshed separately so an OPD refresh does not depend on reloading the duty roster.
+export async function fetchOpdHolidayOverrides(spreadsheetId,apiKey){
+ const makeUrl=range=>{
+  const u=new URL('https://sheets.googleapis.com/v4/spreadsheets/'+encodeURIComponent(spreadsheetId)+'/values:batchGet');
+  u.searchParams.set('ranges',range);u.searchParams.set('valueRenderOption','UNFORMATTED_VALUE');u.searchParams.set('key',apiKey);return u;
+ };
+ const iso=value=>{
+  if(typeof value==='number')return new Date(Date.UTC(1899,11,30)+Math.floor(value)*86400000).toISOString().slice(0,10);
+  const s=String(value||'').trim();return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:null;
+ };
+ const base=await fetch(makeUrl("'ALL เวร'!A5:AP1100"),{cache:'no-store'});
+ if(!base.ok)throw new Error('อ่านวันหยุดจากชีตไม่สำเร็จ');
+ const rows=(await base.json()).valueRanges?.[0]?.values||[];
+ const holidays=rows.filter(r=>String(r[41]||'').toLowerCase()==='holiday').map(r=>iso(r[0])).filter(Boolean);
+ let overrides;
+ try{
+  const extra=await fetch(makeUrl("'OPD Holidays'!A2:C1000"),{cache:'no-store'});
+  if(extra.ok)overrides=((await extra.json()).valueRanges?.[0]?.values||[]).map(r=>({date:iso(r[0]),state:String(r[1]||'').trim().toUpperCase(),note:String(r[2]||'')})).filter(r=>r.date&&['CLOSED','OPEN'].includes(r.state)).map(r=>({...r,closed:r.state==='CLOSED'}));
+ }catch{}
+ return {holidays,overrides,syncedAt:new Date().toISOString()};
+}
