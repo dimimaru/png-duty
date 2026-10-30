@@ -9,18 +9,23 @@ const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const nameColors=new Map();
 function rebuildNameColors(){
-  const names=[...new Set((data.entries||[]).flatMap(e=>(e.names||[]).flatMap(n=>String(n).split(/\s*\/\s*/).filter(Boolean))))].sort((a,b)=>a.localeCompare(b,'th'));
+  const names=[...new Set((data.entries||[]).flatMap(e=>(e.names||[]).flatMap(n=>String(n).split(/\s*\/\s*/).map(part=>part.trim()).filter(Boolean))))].sort((a,b)=>a.localeCompare(b,'th'));
   nameColors.clear();
+  const total=names.length||1;
   names.forEach((name,i)=>{
-    const hue=(i*137.508)%360;
-    nameColors.set(name,[`hsl(${hue} 72% 82%)`,`hsl(${hue} 72% 96%)`,`hsl(${hue} 62% 27%)`]);
+    const hue=(i*360/total).toFixed(2);
+    nameColors.set(name,[`hsl(${hue} 72% 80%)`,`hsl(${hue} 72% 95%)`,`hsl(${hue} 62% 25%)`]);
   });
 }
 function tint(name){return nameColors.get(String(name))||['#DCEAF5','#F2F7FB','#315A84']}
 function nameMarkup(raw,small=false){
-  const parts=String(raw).split(/\s*\/\s*/).filter(Boolean);
-  const cls=small?'doctor secondary-doctor':'doctor';
-  return parts.map((part,i)=>`<span class="${cls}">${i?' / ':''}${esc(part)}</span>`).join('');
+  const parts=String(raw).split(/\s*\/\s*/).map(part=>part.trim()).filter(Boolean);
+  const markup=parts.map((part,i)=>{
+    const [active,,ink]=tint(part);
+    const cls=small||i>0?'doctor secondary-doctor':'doctor';
+    return `${i?'<span class="name-separator"> / </span>':''}<span class="${cls}" style="--person-bg:${active};--person-ink:${ink}">${esc(part)}</span>`;
+  }).join('');
+  return `<span class="name-line">${markup}</span>`;
 }
 function chip(name,state='neutral',role='',small=false){
   const primary=String(name).split(/\s*\/\s*/).filter(Boolean)[0]||String(name);
@@ -35,11 +40,19 @@ function hasConnection(){return !!(config.spreadsheetId&&config.apiKey)}
 function isDemo(){return !!data.demo}
 function buildIndex(){rebuildNameColors();const map=new Map();for(const e of data.entries||[]){const key=`${e.date}|${e.dept}|${e.key}`;if(!map.has(key))map.set(key,[]);map.get(key).push(e)}return map}
 let index=buildIndex();
-function getEntries(date,dept,key){return index.get(`${date}|${dept}|${key}`)||[]}
+function getEntries(date,dept,key){return index.get(`${date}|${dept}|${key}`)||index.get(`${date.slice(0,7)}|${dept}|${key}`)||[]}
 function stateFor(column){return shiftState(column,viewedDate,auto,now)}
 function renderSlot(date,dept,key,state,showRoles=true){
   const entries=getEntries(date,dept,key);
   if(!entries.length)return emptyCell();
+  if(dept==='SURG'&&key==='in'){
+    const staff=entries.find(e=>e.role==='Staff')?.names?.[0];
+    const intern=entries.find(e=>e.role==='Intern')?.names?.[0];
+    if(!staff)return emptyCell();
+    const [active,future,ink]=tint(staff.split(/\s*\/\s*/)[0].trim());
+    return `<div class="assignment ${state}" style="--active:${active};--future:${future};--ink:${ink}">${nameMarkup(staff)}${intern?`<span class="paired-intern">${nameMarkup(intern,true)}</span>`:''}</div>`;
+  }
+  if(dept==='PED'&&key==='in')return entries.map(e=>e.names.map(name=>chip(name,state,e.role)).join('')).join('')||emptyCell();
   if(dept==='MED'||dept==='PED'){
     const secondary=entries.filter(e=>e.role==='Consult 2').flatMap(e=>e.names);
     const primary=entries.filter(e=>e.role!=='Consult 2').flatMap(e=>e.names);
