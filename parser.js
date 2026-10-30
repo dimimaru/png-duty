@@ -11,6 +11,8 @@ export const DUTY_MAP = [
   {col:'J',dept:'SURG',key:'out',role:'Intern / 1st call'},
   {col:'K',dept:'SURG',key:'out',role:'Consult ER'},
   {col:'L',dept:'SURG',key:'out',role:'Consult IPD'},
+  {col:'J',dept:'SURG',key:'in',role:'Intern'},
+  {col:'K',dept:'SURG',key:'in',role:'Staff'},
   {col:'M',dept:'ORTHO',key:'out',role:'Consult 1'},
   {col:'N',dept:'ORTHO',key:'out',role:'Consult 2'},
   {col:'O',dept:'PED',key:'out',role:'Intern / 1st call'},
@@ -90,6 +92,36 @@ export function parseAllDuty(rows) {
   }
   return {entries:output,dates:dates.size,warnings};
 }
+export function parseInTimePed(rows, referenceDate=new Date()) {
+  const heading=rows.findIndex(row=>String(row?.[0]??'').trim()==='Consult ในเวลา');
+  if(heading<0)return [];
+  const monthRow=[...rows.slice(0,heading)].reverse().find(row=>{
+    const current=Number(row?.[1]),next=Number(row?.[2]);
+    return Number.isInteger(current)&&current>=1&&current<=12&&Number.isInteger(next)&&next>=1&&next<=12;
+  });
+  if(!monthRow)return [];
+  const monthNow=Number(monthRow[1]),monthNext=Number(monthRow[2]);
+  const todayParts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit'}).formatToParts(referenceDate);
+  const todayYear=Number(todayParts.find(part=>part.type==='year')?.value);
+  const todayMonth=Number(todayParts.find(part=>part.type==='month')?.value);
+  let yearNow=todayYear;
+  if(monthNow-todayMonth>6)yearNow--;
+  else if(todayMonth-monthNow>6)yearNow++;
+  const yearNext=yearNow+(monthNext<monthNow?1:0);
+  const monthKeys=[`${yearNow}-${String(monthNow).padStart(2,'0')}`,`${yearNext}-${String(monthNext).padStart(2,'0')}`];
+  const output=[];let inPed=false;
+  for(let i=heading+1;i<rows.length;i++) {
+    const row=rows[i]||[];const label=String(row[0]??'').trim();
+    if(label==='PED'){inPed=true;continue;}
+    if(!inPed)continue;
+    const currentNames=parseNames(row[1]),nextNames=parseNames(row[2]);
+    if(label&&!currentNames.length&&!nextNames.length)break;
+    if(!label)continue;
+    if(currentNames.length)output.push({date:monthKeys[0],dept:'PED',key:'in',role:label,names:currentNames,source:'Consult ในเวลา'});
+    if(nextNames.length)output.push({date:monthKeys[1],dept:'PED',key:'in',role:label,names:nextNames,source:'Consult ในเวลา'});
+  }
+  return output;
+}
 export const GP_MAP = [
   {col:'D',key:'am',role:'หลัก 1'},{col:'E',key:'am',role:'หลัก 2'},
   {col:'F',key:'am',role:'หลัก 3'},{col:'O',key:'am',role:'หลัก 4'},
@@ -115,6 +147,7 @@ export function parseSheets(valueRanges) {
   if(!Array.isArray(valueRanges)||valueRanges.length<2)throw new Error('Google API ส่งข้อมูลชีตไม่ครบ');
   const all=parseAllDuty(valueRanges[0].values||[]);
   const opd=parseOpdGp(valueRanges[1].values||[]);
+  const pedIn=parseInTimePed(valueRanges[2]?.values||[]);
   if(all.dates<1 || all.entries.length<1)throw new Error('ไม่พบข้อมูลเวรใน ALL เวร — ตรวจชื่อชีตและคอลัมน์');
-  return {entries:[...all.entries,...opd.entries],warnings:[...all.warnings,...opd.warnings],count:{duty:all.entries.length,opd:opd.entries.length},dateCounts:{duty:all.dates,opd:opd.dates}};
+  return {entries:[...all.entries,...opd.entries,...pedIn],warnings:[...all.warnings,...opd.warnings],count:{duty:all.entries.length,opd:opd.entries.length},dateCounts:{duty:all.dates,opd:opd.dates}};
 }
