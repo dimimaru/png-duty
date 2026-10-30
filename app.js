@@ -7,11 +7,25 @@ import {DEFAULT_CONFIG} from './config.js';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const palette=[['#91C7F5','#E5F3FE','#184F7A'],['#9DDBB5','#E6F5EB','#1F6741'],['#F6C594','#FFF1E2','#885021'],['#D3B8F5','#F2E9FE','#653C95'],['#F3B3CA','#FCE7EF','#883A58'],['#A2DCD8','#E7F7F5','#216965'],['#E5CF8C','#F9F3DE','#795C1F'],['#A7C5EC','#E9F0FA','#315A84']];
-function tint(name){let sum=0;for(const c of String(name)) sum=(sum*31+c.codePointAt(0))>>>0;return palette[sum%palette.length]}
-function chip(name,state='neutral',role=''){
-  const [active,future,ink]=tint(name);
-  return `<div class="assignment ${state}" style="--active:${active};--future:${future};--ink:${ink}">${role?`<span class="role">${esc(role)}</span>`:''}<span class="doctor">${esc(name)}</span></div>`;
+const nameColors=new Map();
+function rebuildNameColors(){
+  const names=[...new Set((data.entries||[]).flatMap(e=>(e.names||[]).flatMap(n=>String(n).split(/\s*\/\s*/).filter(Boolean))))].sort((a,b)=>a.localeCompare(b,'th'));
+  nameColors.clear();
+  names.forEach((name,i)=>{
+    const hue=(i*137.508)%360;
+    nameColors.set(name,[`hsl(${hue} 72% 82%)`,`hsl(${hue} 72% 96%)`,`hsl(${hue} 62% 27%)`]);
+  });
+}
+function tint(name){return nameColors.get(String(name))||['#DCEAF5','#F2F7FB','#315A84']}
+function nameMarkup(raw,small=false){
+  const parts=String(raw).split(/\s*\/\s*/).filter(Boolean);
+  const cls=small?'doctor secondary-doctor':'doctor';
+  return parts.map((part,i)=>`<span class="${cls}">${i?' / ':''}${esc(part)}</span>`).join('');
+}
+function chip(name,state='neutral',role='',small=false){
+  const primary=String(name).split(/\s*\/\s*/).filter(Boolean)[0]||String(name);
+  const [active,future,ink]=tint(primary);
+  return `<div class="assignment ${state}${small?' small-assignment':''}" style="--active:${active};--future:${future};--ink:${ink}">${role?`<span class="role">${esc(role)}</span>`:''}${nameMarkup(name,small)}</div>`;
 }
 function emptyCell(){return `<div class="assignment placeholder" aria-label="ไม่มีรายการ">—</div>`}
 let data=makeDemo(), config=getPreference('connection',DEFAULT_CONFIG),tab='duty',now=bangkokParts();
@@ -19,13 +33,19 @@ let viewedDate=now.date,auto=true,filterOpen=false,roleFilter='all',selectedDept
 let selectedMonth=now.date.slice(0,7),monthDept=getPreference('monthDept','ER'),syncInFlight=false;
 function hasConnection(){return !!(config.spreadsheetId&&config.apiKey)}
 function isDemo(){return !!data.demo}
-function buildIndex(){const map=new Map();for(const e of data.entries||[]){const key=`${e.date}|${e.dept}|${e.key}`;if(!map.has(key))map.set(key,[]);map.get(key).push(e)}return map}
+function buildIndex(){rebuildNameColors();const map=new Map();for(const e of data.entries||[]){const key=`${e.date}|${e.dept}|${e.key}`;if(!map.has(key))map.set(key,[]);map.get(key).push(e)}return map}
 let index=buildIndex();
 function getEntries(date,dept,key){return index.get(`${date}|${dept}|${key}`)||[]}
 function stateFor(column){return shiftState(column,viewedDate,auto,now)}
 function renderSlot(date,dept,key,state,showRoles=true){
   const entries=getEntries(date,dept,key);
   if(!entries.length)return emptyCell();
+  if(dept==='MED'||dept==='PED'){
+    const secondary=entries.filter(e=>e.role==='Consult 2').flatMap(e=>e.names);
+    const primary=entries.filter(e=>e.role!=='Consult 2').flatMap(e=>e.names);
+    const [active,future,ink]=tint((primary[0]||secondary[0]||'').split(/\s*\/\s*/)[0]);
+    return `<div class="assignment ${state}" style="--active:${active};--future:${future};--ink:${ink}">${primary.map(name=>nameMarkup(name)).join('')}${secondary.map(name=>nameMarkup(name,true)).join('')}</div>`;
+  }
   return entries.map(e=>e.names.map(name=>chip(name,state,showRoles?e.role:'' )).join('')).join('');
 }
 function renderHead(columns,er=false){return `<div class="grid-head${er?' er-head':''}">${er?'':'<div class="header-cell"><strong>แผนก</strong></div>'}${columns.map(c=>`<div class="header-cell"><strong>${esc(c.label)}</strong><small>${esc(c.time)}</small></div>`).join('')}</div>`}
