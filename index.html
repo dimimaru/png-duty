@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#145A86">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PNG Duty">
+  <meta name="description" content="ตารางเวรแพทย์ รพ.พังงา — ดูเวรแบบรวดเร็วและ Offline">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="./assets/icon-180.png">
+  <link rel="stylesheet" href="./style.css">
+  <title>PNG Duty · ตารางเวร รพ.พังงา</title>
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="app-header">
+      <div class="brand">
+        <img class="brand-icon" src="./assets/icon-192.png" alt="">
+        <div class="brand-copy"><strong>PNG Duty</strong><span>ตารางเวรแพทย์ · รพ.พังงา</span></div>
+      </div>
+      <div class="header-right">
+        <div class="sync-copy"><span id="sync-status">ยังไม่เชื่อมข้อมูล</span><span id="sync-time">—</span></div>
+        <button id="refresh-btn" class="icon-button" title="ซิงก์ข้อมูล" aria-label="ซิงก์ข้อมูล"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.5 9A7 7 0 0 1 19.5 7M4.5 17A7 7 0 0 0 17.5 15"/></svg></button>
+        <button id="settings-btn" class="icon-button" title="ตั้งค่า" aria-label="ตั้งค่า"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg></button>
+      </div>
+    </header>
+    <div id="demo-banner" class="notice demo-notice" hidden>ข้อมูลสาธิตสำหรับทดสอบหน้าจอ — ไม่ใช่ตารางเวรจริง <button id="setup-quick">ตั้งค่า Google Sheets</button></div>
+    <div id="alert-banner" class="notice alert-notice" hidden></div>
+    <main>
+      <div class="tabbar" role="tablist" aria-label="มุมมองตารางเวร">
+        <button class="tab active" data-tab="duty" role="tab" aria-selected="true">เวรรวม</button>
+        <button class="tab" data-tab="opd" role="tab" aria-selected="false">OPD</button>
+        <button class="tab" data-tab="month" role="tab" aria-selected="false">รายเดือน</button>
+      </div>
+      <section class="date-toolbar">
+        <div class="date-box"><label for="view-date">วันที่ดูเวร</label><input type="date" id="view-date"></div>
+        <button id="today-btn" class="small-button primary">วันนี้ · Auto</button>
+        <button id="filter-btn" class="small-button" aria-expanded="false">☷ กรองแผนก</button>
+      </section>
+      <div id="filter-panel" class="filter-panel" hidden></div>
+      <div id="screen" class="screen" aria-live="polite"></div>
+    </main>
+    <footer class="app-footer"><span>ดูข้อมูลอย่างเดียว · Google Sheets เป็นแหล่งข้อมูลหลัก</span><span id="source-label">ตัวอย่างหน้าจอ</span></footer>
+  </div>
+
+  <dialog id="settings-dialog" class="settings-dialog">
+    <form id="settings-form" method="dialog">
+      <div class="dialog-head"><h2>เชื่อม Google Sheets</h2><button type="button" id="close-settings" class="icon-button">✕</button></div>
+      <p class="muted">ใช้ Google Sheets ที่เปิดอ่านสาธารณะ และ API Key ซึ่งจำกัดการใช้งานเฉพาะเว็บไซต์นี้</p>
+      <label>Spreadsheet ID
+        <input name="spreadsheetId" id="spreadsheet-id" placeholder="รหัสระหว่าง /d/ และ /edit" spellcheck="false" autocomplete="off">
+      </label>
+      <label>Google Sheets API Key
+        <input name="apiKey" id="api-key" placeholder="AIza..." spellcheck="false" autocomplete="off">
+      </label>
+      <p class="muted small">การตั้งค่าเก็บในเบราว์เซอร์ของเครื่องนี้เท่านั้น API Key ที่ใช้ในเว็บสาธารณะไม่ใช่ความลับ จึงต้อง Restrict API และ HTTP referrer ใน Google Cloud</p>
+      <div class="dialog-buttons"><button type="button" id="clear-data" class="small-button danger">ล้างข้อมูลในเครื่อง</button><button type="submit" class="small-button primary">บันทึกและซิงก์</button></div>
+    </form>
+  </dialog>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
