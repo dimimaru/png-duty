@@ -6,6 +6,7 @@ export const DUTY_MAP = [
   {col:'F',dept:'ER',key:'night',role:'ER ดึก'},
   {col:'G',dept:'OB-GYN',key:'out',role:'Intern / 1st call'},
   {col:'H',dept:'OB-GYN',key:'out',role:'Consult OB'},
+  {col:'H',dept:'OB-GYN',key:'in',role:'OB'},
   {col:'I',dept:'OB-GYN',key:'out',role:'Consult Gyne'},
   {col:'AI',dept:'OB-GYN',key:'in',role:'Gyne'},
   {col:'J',dept:'SURG',key:'out',role:'Intern / 1st call'},
@@ -38,7 +39,7 @@ export const DUTY_MAP = [
   {col:'AC',dept:'FORENSIC',key:'out',role:'On-call'},
   {col:'AD',dept:'URO',key:'out',role:'On-call'},
   {col:'AE',dept:'PSY',key:'out',role:'นอกเวลา'},
-  {col:'AF',dept:'PSY',key:'out',role:'เด็ก / วัยรุ่น'},
+  {col:'AF',dept:'PSY',key:'in',role:'เด็ก / วัยรุ่น'},
   // Note: AG/AH indicate "A - Consult" and "A - ER/รพช." in the source.
   // Tentative in-hours classification; confirm with roster owner before release.
   {col:'AG',dept:'PSY',key:'in',role:'ผู้ใหญ่ · Consult'},
@@ -47,7 +48,7 @@ export const DUTY_MAP = [
 export const DEPT_LABELS = {
   ER:'ER',MED:'MED',SURG:'SURG', 'OB-GYN':'OB-GYN',PED:'PED',ORTHO:'ORTHO',
   PSY:'PSY',NEURO:'NEURO',ENT:'ENT',EYE:'EYE',RADIO:'RADIO',URO:'URO',
-  ANES:'ANES',MAXILO:'MAXILO',FORENSIC:'FORENSIC',TRANSPORT:'โอนอก', GP:'GP'
+  ANES:'ANES',MAXILO:'Maxillo',FORENSIC:'Forensic',TRANSPORT:'OPD นอกเวลา', GP:'GP'
 };
 export const DEPT_ORDER = ['ER','MED','SURG','OB-GYN','PED','ORTHO','PSY','NEURO','ENT','EYE','RADIO','URO','ANES','MAXILO','FORENSIC','TRANSPORT'];
 export const INTERN_NAMES = [
@@ -148,6 +149,16 @@ export function parseSheets(valueRanges) {
   const all=parseAllDuty(valueRanges[0].values||[]);
   const opd=parseOpdGp(valueRanges[1].values||[]);
   const pedIn=parseInTimePed(valueRanges[2]?.values||[]);
+  const fixedWeekdayStaff={};
+  const formulas=valueRanges[3]?.values||[];
+  for(const [dept,row] of [['MAXILO',0],['FORENSIC',2]]) {
+    const formula=String(formulas[row]?.[0]||'');
+    const quoted=[...formula.matchAll(/"([^"]*)"/g)].map(match=>match[1]);
+    const name=quoted.at(-1);
+    if(formula.startsWith('=')&&parseNames(name).length)fixedWeekdayStaff[dept]=name;
+  }
+  const holidays=(valueRanges[0].values||[]).filter(row=>String(row[41]||'').toLowerCase()==='holiday').map(row=>excelDate(row[0])).filter(Boolean);
+
   if(all.dates<1 || all.entries.length<1)throw new Error('ไม่พบข้อมูลเวรใน ALL เวร — ตรวจชื่อชีตและคอลัมน์');
-  return {entries:[...all.entries,...opd.entries,...pedIn],warnings:[...all.warnings,...opd.warnings],count:{duty:all.entries.length,opd:opd.entries.length},dateCounts:{duty:all.dates,opd:opd.dates}};
+  return {fixedWeekdayStaff,holidays,entries:[...all.entries,...opd.entries,...pedIn],warnings:[...all.warnings,...opd.warnings],count:{duty:all.entries.length,opd:opd.entries.length},dateCounts:{duty:all.dates,opd:opd.dates}};
 }

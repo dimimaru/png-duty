@@ -1,4 +1,4 @@
-const CACHE = 'png-duty-shell-v1';
+const CACHE = 'png-duty-shell-v3-20261030';
 const SHELL = ['./', './index.html', './style.css', './app.js', './parser.js', './schedule.js', './sheets.js', './storage.js', './demo.js', './config.js', './manifest.webmanifest','./assets/icon-192.png','./assets/icon-512.png','./assets/icon-180.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
