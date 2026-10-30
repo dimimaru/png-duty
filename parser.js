@@ -74,7 +74,7 @@ export function parseNames(raw) {
   if(typeof raw==='number')return [];
   const val=String(raw).trim();
   if(!val||BAD.test(val)||/^\d+(?:st|nd|rd|th)$/i.test(val))return [];
-  return [...new Set(val.split(/\s*[\n\r,;+\/]+\s*/g).map(s=>s.trim()).filter(n=>n&&!BAD.test(n)&&n.length<=90))];
+  return [...new Set(val.split(/\s*[\n\r,;+]+\s*/g).map(s=>s.trim()).filter(n=>n&&!BAD.test(n)&&n.length<=90))];
 }
 export function parseAllDuty(rows) {
   const output=[];const warnings=[];const dates=new Set();
