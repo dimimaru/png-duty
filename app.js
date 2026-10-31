@@ -331,5 +331,5 @@ const mode=e.target.closest('[data-opd-mode]');if(mode){opdMode=mode.dataset.opd
  window.addEventListener('online',()=>{sync();syncOpdHolidays();});document.addEventListener('visibilitychange',()=>{if(!document.hidden){render();if(Date.now()-Date.parse(data.syncedAt||0)>300000)sync();}});
  setInterval(()=>{render();if(document.visibilityState==='visible'&&Date.now()-Date.parse(data.syncedAt||0)>300000)sync();},30000);
 }
-async function boot(){try{const cached=await loadSnapshot();if(cached?.entries?.length&&cached.spreadsheetId===config.spreadsheetId)data=cached;}catch{}data.opdHolidays=getPreference('opdHolidayDates',null);rebuild();init();render();if(navigator.onLine){sync();syncOpdHolidays();}if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+async function boot(){try{const cached=await loadSnapshot();if(cached?.entries?.length&&cached.spreadsheetId===config.spreadsheetId)data=cached.erFeed?overlayER(cached,cached.erFeed,ER_SYNC_CONFIG):cached;}catch{}data.opdHolidays=getPreference('opdHolidayDates',null);rebuild();init();render();if(navigator.onLine){sync();syncOpdHolidays();}if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
 boot();
