@@ -1,9 +1,9 @@
 // Weekly OPD schedule transcribed from OPD Spec. PNG Hosp..pdf (pages 2–4).
 // Week numbers mean the 1st/2nd/etc occurrence of that weekday in the month.
-export const OPD_GROUPS=['GP','MED','PED','OB-GYN','SURGICAL','EYE','ENT','PSY','SKIN'];
-export const OPD_LABELS={GP:'GP',MED:'MED',PED:'PED','OB-GYN':'OB-GYN',SURGICAL:'คลินิกศัลยกรรม',EYE:'Eye',ENT:'ENT',PSY:'Psych',SKIN:'Skin',DENTAL:'Dental'};
+export const OPD_GROUPS=['GP','MED','PED','OB-GYN','SURG','ORTHO','URO','NEURO','EYE','ENT','PSY','SKIN'];
+export const OPD_LABELS={GP:'GP',MED:'MED',PED:'PED','OB-GYN':'OB-GYN',SURG:'Sx',ORTHO:'Ortho',URO:'Uro',NEURO:'NeuroSx',EYE:'Eye',ENT:'ENT',PSY:'Psych',SKIN:'Skin',DENTAL:'Dental'};
 const rules=[];
-function add(days,session,group,clinic,doctors=[],weeks=null,note=''){for(const day of days)rules.push({day,session,group,clinic,doctors,weeks,note});}
+function add(days,session,group,clinic,doctors=[],weeks=null,note=''){for(const day of days)rules.push({day,session,group:group==='SURGICAL'?({Ortho:'ORTHO',Uro:'URO',NeuroSx:'NEURO'}[clinic]||'SURG'):group,clinic,doctors,weeks,note});}
 add([1,2,4],'am','MED','MED');
 add([1],'am','MED','CAPD',['พฤฒินาถ']);add([1],'am','MED','HT');
 add([2,5],'am','MED','DM');add([3],'am','MED','CKD',['พฤฒินาถ','พีรวิชญ์']);

@@ -21,3 +21,37 @@
 .smc-table th small{display:block;font-size:8px;font-weight:400;margin-top:3px}
 .selected-smc>th{background:#cde9fb}.selected-smc>td{box-shadow:inset 0 0 0 1px #b9dff5}
 @media(max-width:380px){.staff-line{gap:3px}.staff-line .first-call{font-size:8px;padding:2px 3px}.specialist-table th:first-child{width:58px}.clinic-card strong{font-size:10px}}
+/* v6: section-aligned merged titles, people links and monthly activity */
+.shared-cell{position:relative}.shared-role{position:absolute;top:5px;width:50%;text-align:center;font-size:9px;color:#395364;line-height:1.3;padding:0 4px;pointer-events:none}
+.with-shared-role>.assignment{padding-top:23px}
+.person-link{font:inherit;color:inherit;background:transparent;border:0;padding:0;margin:0;cursor:pointer;text-align:inherit;max-width:100%;line-height:inherit}
+.person-link:hover{text-decoration:underline;text-underline-offset:3px}.person-link.doctor{font-size:12px;font-weight:650}
+.person-link.clinic-doctor{font-size:inherit;white-space:normal;overflow-wrap:anywhere}
+.person-link.intern-name{font-size:inherit}
+.nav-control{background:#fff}.nav-control input[type=date]{background:transparent}
+.nav-control>button{background:#ffffff65}
+.nav-control.weekday-1{background:#fff7cb}.nav-control.weekday-2{background:#ffe7f0}
+.nav-control.weekday-3{background:#e1f5e7}.nav-control.weekday-4{background:#ffebd7}
+.nav-control.weekday-5{background:#e0f2fc}.nav-control.weekday-6{background:#f0e4fa}
+.nav-control.weekday-0{background:#ffe3e3}
+.smc-scroll{overflow:visible}.smc-table{width:100%;min-width:0;table-layout:fixed;border-spacing:2px}
+.smc-table th:first-child{width:30px}.smc-table th,.smc-table td{padding:3px 1px;font-size:9px;overflow-wrap:anywhere;word-break:break-word}
+.smc-table th small{font-size:7px}.smc-table .clinic-card{padding:4px 1px;gap:2px;background:#ffffff55}
+.smc-table .clinic-card strong{font-size:8px}.smc-table .clinic-card small{font-size:8px;max-width:100%;padding:2px 1px}
+.smc-weekday-1>td,.smc-weekday-1>th{background:#fff9dc}
+.smc-weekday-2>td,.smc-weekday-2>th{background:#fff0f5}
+.smc-weekday-3>td,.smc-weekday-3>th{background:#eaf8ef}
+.smc-weekday-4>td,.smc-weekday-4>th{background:#fff0e2}
+.person-month-head,.person-month-row{display:grid;grid-template-columns:32px repeat(2,minmax(0,1fr));gap:4px}
+.person-month-head{font-size:10px;text-align:center;padding-bottom:5px}
+.person-month-head>span{background:#edf3f7;padding:8px 2px;border-radius:6px}
+.person-month-row{margin-bottom:4px}
+.person-activities{display:flex;flex-direction:column;gap:3px;min-width:0}
+.person-activities.overlapping{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+.activity{padding:6px 4px;border-radius:6px;background:#e8f1f8;color:#294961;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.smc-activity{background:#f3e8fa;border:1px solid #ddc6eb}
+.activity-empty{display:grid;place-items:center;background:#f7f9fb;border-radius:6px;color:#b5c0c9;font-size:10px;padding:7px}
+.all-day-activities{grid-column:2/-1;display:flex;flex-direction:column;gap:3px}
+.person-month-row:has(.all-day-activities) .month-day{grid-row:1/span 2}
+.person-note{font-size:10px;line-height:1.6;color:#8495a2;margin-top:12px}
+@media(max-width:380px){.smc-table th:first-child{width:25px}.smc-table th{font-size:8px}.smc-table .clinic-card strong,.smc-table .clinic-card small{font-size:7.5px}.person-link.doctor{font-size:11px}.activity{font-size:9px}}
