@@ -92,11 +92,11 @@ function personLink(name,cls='doctor'){
  if(!n||n==='แพทย์ลา'||n.startsWith('โทร'))return `<span class="${cls}">${esc(n)}</span>`;
  return `<button type="button" class="person-link ${cls}" data-person="${esc(n)}">${esc(n)}</button>`;
 }
-function card(name,{title='',minor='',intern=false,backup=false,phone=false}={}){
+function card(name,{title='',minor='',intern=false,backup=false,phone=false,companions=[]}={}){
  if(!name)return empty();const main=first(name),second=backup?parts(name).slice(1).join(' / '):'';
  const grey=intern||(interns.has(main)&&!(tab==='opd'||(tab==='month'&&monthDept==='GP')));
  const color=phone?'#edf1f5':grey?'#e9edf1':colors.get(main)||'#e7edf4';
- return `<div class="assignment${grey?' intern':''}" style="--person:${color}">${title?`<span class="role">${esc(title)}</span>`:''}<div class="staff-line">${personLink(main)}${second?`<small class="backup">/ ${parts(second).map(n=>personLink(n,'backup')).join(' / ')}</small>`:''}${minor?`<span class="first-call">1st call ${personLink(first(minor),'intern-name')}</span>`:''}</div></div>`;
+ return `<div class="assignment${grey?' intern':''}" style="--person:${color}">${title?`<span class="role">${esc(title)}</span>`:''}<div class="staff-line">${personLink(main)}${second?`<small class="backup">/ ${parts(second).map(n=>personLink(n,'backup')).join(' / ')}</small>`:''}${minor?`<span class="first-call">1st call ${personLink(first(minor),'intern-name')}</span>`:''}${companions.length?`<span class="first-call er-companion">${companions.map(n=>personLink(n,'intern-name')).join(' / ')}</span>`:''}</div></div>`;
 }
 const roles={Stroke:'Stroke fast','ER / Refer':'ICU-ER-Refer','Consult ต่างแผนก':'ต่างแผนก','OPD / Ward':'OPD',Gyne:'GYN','ผู้ใหญ่ · Consult':'ผู้ใหญ่ · OPD/ต่างแผนก','ผู้ใหญ่ · ER / รพช.':'ผู้ใหญ่ · ER/Refer','เด็ก / วัยรุ่น':'จิตเวชเด็ก',OB:'OB'};
 function roleTitle(e){const r=e.role||'';if(roles[r])return roles[r];if(/NICU/i.test(r))return 'Refer NICU';if(/เด็กโต|PICU/.test(r))return 'เด็กโต / PICU';if(/^OPD1/.test(r))return 'OPD';if(/OPD2/.test(r))return 'ICU / ต่างแผนก';if(/พิเศษชั้น/.test(r))return 'พิเศษชั้น 5–6';if(/newborn|รับเด็ก/i.test(r))return 'NB / หลังคลอด';return '';}
@@ -130,10 +130,21 @@ function departmentRow(dept,cols){
  const rest=match>=0?(remaining.length?`<div class="duty-cell" style="grid-column:${cols[0].key==='in'?1:2}">${inHtml}</div>`:''):cols.map(c=>`<div class="duty-cell">${c.key==='in'?inHtml:outHtml}</div>`).join('');
  return `<div class="matrix-row"><button class="dept-tag" data-dept="${dept}">${esc(DEPT_LABELS[dept]||dept)}</button><div class="dept-grid">${shared}${rest}</div></div>`;
 }
+// June/July ER entries retain "EP / paired intern" from the source sheet.
+// Exclude a second EP: that remains the existing morning backup display.
+const ER_EP_NAMES=new Set(['กฤษฎา','โชษิตา','กฤศญา']);
+function erCompanions(raw,date){
+ if(!['06','07'].includes(date.slice(5,7))||!ER_EP_NAMES.has(first(raw)))return [];
+ return [...new Set(parts(raw).slice(1).filter(n=>!ER_EP_NAMES.has(n)))];
+}
+function erAssignment(raw,date,key,title=''){
+ const companions=erCompanions(raw,date);
+ return card(companions.length?first(raw):(key==='morning'?raw:first(raw)),{title,backup:key==='morning'&&!companions.length,companions});
+}
 function erRow(cols){
- const day=entries(viewedDate,'ER','morning').flatMap(e=>e.names).map(n=>card(n,{title:'ER เช้า',backup:true})).join('')||empty();
+ const day=entries(viewedDate,'ER','morning').flatMap(e=>e.names).map(n=>erAssignment(n,viewedDate,'morning','ER เช้า')).join('')||empty();
  const nightDate=auto&&bangkokParts().minutes<480?nextDate(viewedDate,-1):viewedDate;
- const shift=(key,title,date)=>entries(date,'ER',key).flatMap(e=>e.names).map(n=>card(first(n),{title})).join('')||empty();
+ const shift=(key,title,date)=>entries(date,'ER',key).flatMap(e=>e.names).map(n=>erAssignment(n,date,key,title)).join('')||empty();
  const out=`<div class="er-split">${shift('evening','ER บ่าย',nightDate)}${shift('night','ER ดึก',nightDate)}</div>`;
  if(dutyHoliday(viewedDate,data))return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">ER</button><div class="holiday-er">${day}${shift('evening','ER บ่าย',viewedDate)}${shift('night','ER ดึก',viewedDate)}</div></div>`;
  return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">ER</button><div class="dept-grid">${cols.map(c=>`<div class="duty-cell">${c.key==='in'?day:out}</div>`).join('')}</div></div>`;
@@ -175,7 +186,7 @@ async function syncOpdHolidays(){
 }
 function monthDates(ym){const [y,m]=ym.split('-').map(Number);return Array.from({length:new Date(Date.UTC(y,m,0)).getUTCDate()},(_,i)=>`${ym}-${String(i+1).padStart(2,'0')}`);}
 function monthSlot(date,key){
- if(monthDept==='ER')return entries(date,'ER',key).flatMap(e=>e.names).map(n=>card(key==='morning'?n:first(n),{backup:key==='morning'})).join('')||empty();
+ if(monthDept==='ER')return entries(date,'ER',key).flatMap(e=>e.names).map(n=>erAssignment(n,date,key)).join('')||empty();
  if(monthDept==='GP'&&opdHoliday(date,data,opdOverrides))return empty();
  if(key==='in'&&dutyHoliday(date,data)&&!['ER','GP','TRANSPORT'].includes(monthDept)){const a=overnight(date,monthDept);return a.name?card(a.name,{minor:a.minor}):empty();}
  if(monthDept==='GP')return entries(date,'GP',key).flatMap(e=>e.names.map(n=>card(n,{title:e.role}))).join('')||empty();
@@ -210,7 +221,8 @@ function personActivities(date,name){
  for(const [key,title,period,start,end] of [['morning','ER เช้า','in',480,960],['evening','ER บ่าย','out',960,1380],['night','ER ดึก','out',1380,1920]]){
   for(const e of entries(date,'ER',key))for(const raw of e.names){
    if(first(raw)===target)add(period,title,start,end,'ER');
-   if(key==='morning'&&parts(raw).slice(1).includes(target))add(period,title+' · ชื่อที่สอง',start,end,'ER');
+   if(erCompanions(raw,date).includes(target))add(period,title+' · คู่ EP '+first(raw),start,end,'ER');
+   else if(key==='morning'&&parts(raw).slice(1).includes(target))add(period,title+' · ชื่อที่สอง',start,end,'ER');
   }
  }
  for(const [key,period,title,start,end] of [['in','in','OPD นอกเวลา เช้า',510,750],['out','out','OPD นอกเวลา บ่าย',990,1230]])for(const e of entries(date,'TRANSPORT',key))if(e.names.some(n=>first(n)===target))add(period,title,start,end,'OPD');
