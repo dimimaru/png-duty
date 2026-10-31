@@ -1,6 +1,8 @@
 import {canonicalName} from './names.js';
 const keys=['morning','evening','night'];
-const normalize=raw=>String(raw??'').split('/').map(canonicalName).filter(Boolean);
+// Match the legal given name, never the nickname/abbreviation in shortName.
+const givenName=raw=>canonicalName(canonicalName(raw).split(' ')[0]);
+const normalize=raw=>String(raw??'').split('/').map(givenName).filter(Boolean);
 export function validateERFeed(feed,config){
  if(feed?.format!=='png-duty-roster-v1'||feed.status!=='final'||feed.department!==config.department||feed.month!==config.month||!Number.isInteger(feed.revision)||feed.revision<1||!Array.isArray(feed.days))throw new Error('รูปแบบตาราง ER-duty ไม่ตรงกับเดือนทดลอง');
  const count=new Date(Number(config.month.slice(0,4)),Number(config.month.slice(5)),0).getDate();
@@ -33,12 +35,14 @@ export function overlayER(sheetData,feed,config){
  const sheetEntries=sheetData.sheetEntries||sheetData.entries||[];
  if(!feed)return {...sheetData,entries:sheetEntries,sheetEntries,erFeed:null,erComparisons:{}};
  validateERFeed(feed,config);
- const comparisons={},replacement=[],sourceDates=new Set(sheetEntries.filter(e=>e.source==='ALL เวร').map(e=>e.date));
+ const comparisons={},replacement=[];
  for(const day of feed.days)for(const shift of day.shifts){
-  const erNames=shift.doctor?[canonicalName(shift.doctor.shortName||shift.doctor.name)]:[];
-  const sheetNames=sheetEntries.filter(e=>e.date===day.date&&e.dept==='ER'&&e.key===shift.slot).flatMap(e=>(e.names||[]).flatMap(normalize));
+  const erNames=shift.doctor?[givenName(shift.doctor.name)].filter(Boolean):[];
+  const sheetRows=sheetEntries.filter(e=>e.date===day.date&&e.dept==='ER'&&e.key===shift.slot);
+  const sheetNames=sheetRows.flatMap(e=>(e.names||[]).flatMap(normalize));
   const matches=erNames.length===sheetNames.length&&erNames.every((n,i)=>n===sheetNames[i]);
-  comparisons[day.date+'|'+shift.slot]={erNames,sheetNames,different:!matches,sheetAvailable:sourceDates.has(day.date),revision:feed.revision,erUpdatedAt:feed.updatedAt,sheetSyncedAt:sheetData.syncedAt};
+  comparisons[day.date+'|'+shift.slot]={erNames,sheetNames,different:erNames.length>0&&sheetNames.length>0&&!matches,sheetAvailable:sheetNames.length>0,revision:feed.revision,erUpdatedAt:feed.updatedAt,sheetSyncedAt:sheetData.syncedAt};
+  if(!erNames.length&&sheetNames.length){replacement.push(...sheetRows);continue;}
   replacement.push({date:day.date,dept:'ER',key:shift.slot,role:'ER '+({morning:'เช้า',evening:'บ่าย',night:'ดึก'}[shift.slot]),names:erNames,source:'ER-duty',doctorId:shift.doctor?.id||null,doctorRole:shift.doctor?.role||null});
  }
  return {...sheetData,sheetEntries,entries:[...sheetEntries.filter(e=>!(e.dept==='ER'&&e.date.startsWith(config.month+'-'))),...replacement],erFeed:feed,erComparisons:comparisons};
