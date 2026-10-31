@@ -19,7 +19,66 @@ function rebuild(){
  index=new Map();interns=new Set(INTERN_NAMES);
  for(const e of data.entries||[]){const k=`${e.date}|${e.dept}|${e.key}`;if(!index.has(k))index.set(k,[]);index.get(k).push(e);if(isInternEntry(e))for(const n of e.names||[])parts(n).forEach(p=>interns.add(p));}
  const names=[...new Set((data.entries||[]).flatMap(e=>(e.names||[]).flatMap(parts)))].concat(CLINIC_DOCTORS,Object.values(SMC).flat(2).map(r=>r[1]),['มนตรี','อักษราภัค']).filter(Boolean).sort((a,b)=>a.localeCompare(b,'th'));
- colors=new Map([...new Set(names)].map((n,i)=>[n,`hsl(${((i*137.507764)%360).toFixed(5)} 64% ${[81,89,74][i%3]}%)`]));
+ colors=departmentColors([...new Set(names)]);
+}
+// Compare actual background colors in CIELAB, prioritising doctors in the
+// same department, then departments displayed next to each other.
+function colorLab(hex){
+ const rgb=hex.slice(1).match(/../g).map(v=>parseInt(v,16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);
+ const [r,g,b]=rgb;
+ const f=v=>v>.008856?Math.cbrt(v):7.787*v+16/116;
+ const x=f((.4124564*r+.3575761*g+.1804375*b)/.95047),y=f(.2126729*r+.7151522*g+.072175*b),z=f((.0193339*r+.119192*g+.9503041*b)/1.08883);
+ return [116*y-16,500*(x-y),200*(y-z)];
+}
+function pastelHex(h,l){
+ const s=.66,a=s*Math.min(l,1-l);
+ const c=n=>{const k=(n+h/30)%12;return Math.round(255*(l-a*Math.max(-1,Math.min(k-3,9-k,1)))).toString(16).padStart(2,'0');};
+ return '#'+c(0)+c(8)+c(4);
+}
+function departmentColors(names){
+ const memberships=new Map(names.map(n=>[n,new Set()]));
+ const add=(raw,dept)=>{for(const name of parts(raw)){if(!memberships.has(name))continue;memberships.get(name).add(dept);if(['SURG','ORTHO','URO','NEURO'].includes(dept))memberships.get(name).add('SURGICAL');}};
+ for(const e of data.entries||[])for(const name of e.names||[])add(name,e.dept);
+ // Include specialists who only appear in the recurring OPD/SMC schedule.
+ for(let day=1;day<=35;day++){
+  const date=new Date(Date.UTC(2026,0,day)).toISOString().slice(0,10);
+  for(const clinic of clinicsForDate(date))for(const name of clinic.doctors)add(name,clinic.group);
+ }
+ for(const columns of Object.values(SMC))columns.forEach((cell,i)=>cell.forEach(([clinic,name])=>add(name,['MED','OB-GYN','SURGICAL','SURGICAL',clinic==='Eye'?'EYE':clinic==='Uro'?'SURGICAL':'PSY','DENTAL'][i])));
+ for(const [dept,name] of Object.entries(data.fixedWeekdayStaff||{}))add(name,dept);
+ add('มนตรี','FORENSIC');add('อักษราภัค','FORENSIC');
+ const order=DEPT_ORDER.filter(d=>!['ER','TRANSPORT'].includes(d)).concat(['ER','TRANSPORT','GP','DENTAL']);
+ const weight=(a,b)=>{
+  const ga=memberships.get(a),gb=memberships.get(b);
+  for(const group of ga)if(gb.has(group))return 1;
+  let gap=Infinity;
+  for(const x of ga)for(const y of gb){const i=order.indexOf(x),j=order.indexOf(y);if(i>=0&&j>=0)gap=Math.min(gap,Math.abs(i-j));}
+  return gap<=1?.42:gap===2?.22:.09;
+ };
+ const palette=[];
+ for(const l of [.70,.79,.87])for(let h=0;h<360;h+=10){const hex=pastelHex(h,l);palette.push({hex,lab:colorLab(hex)});}
+ const assigned=new Map(),used=new Set(),labs=new Map();
+ const put=(n,hex)=>{assigned.set(n,hex);used.add(hex);labs.set(n,colorLab(hex));};
+ // Stable, clearly separated colors for the pairs highlighted by the user.
+ for(const [n,hex] of [['พัทธมน','#aad8f0'],['สุจิตราภรณ์','#f8bf94'],['นาถชนก','#d1b4ef'],['เล็ก','#abe1ad']])if(memberships.has(n))put(n,hex);
+ const sizes=new Map();
+ for(const groups of memberships.values())for(const g of groups)sizes.set(g,(sizes.get(g)||0)+1);
+ const degree=n=>[...memberships.get(n)].reduce((sum,g)=>sum+(sizes.get(g)||0),0);
+ const pending=names.filter(n=>!assigned.has(n)).sort((a,b)=>degree(b)-degree(a)||a.localeCompare(b,'th'));
+ for(const name of pending){
+  let best=null,bestScore=-Infinity;
+  for(const candidate of palette){
+   if(used.has(candidate.hex))continue;
+   let minimum=Infinity,total=0;
+   for(const [other,lab] of labs){const distance=Math.hypot(...lab.map((v,i)=>v-candidate.lab[i]));minimum=Math.min(minimum,distance/weight(name,other));total+=distance;}
+   const score=(Number.isFinite(minimum)?minimum:0)+total*.00001;
+   if(score>bestScore){bestScore=score;best=candidate;}
+  }
+  // Extend deterministically if a larger future roster exhausts the palette.
+  if(!best){let i=assigned.size,hex;do{hex=pastelHex((i++*137.507764)%360,.76);}while(used.has(hex));best={hex};}
+  put(name,best.hex);
+ }
+ return assigned;
 }
 function entries(date,dept,key){return index.get(`${date}|${dept}|${key}`)||index.get(`${date.slice(0,7)}|${dept}|${key}`)||[];}
 function empty(){return '<div class="empty-cell">—</div>';}
