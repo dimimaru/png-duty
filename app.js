@@ -1,3 +1,5 @@
+import {ER_SYNC_CONFIG} from './er-sync-config.js';
+import {fetchERFeed,overlayER} from './er-sync.js';
 import {canonicalName} from './names.js';
 import {OPD_GROUPS,OPD_LABELS,clinicsForDate,CLINIC_DOCTORS,SMC,SMC_COLUMNS,dutyHoliday,opdHoliday} from './opd.js';
 import {fetchOpdHolidayOverrides} from './sheets.js';
@@ -17,12 +19,13 @@ let selectedDepts=getPreference('departments',DEPT_ORDER),selectedOpds=getPrefer
 let opdMode='in',opdOverrides=getPreference('opdHolidayOverrides',[]),holidaySyncTime=getPreference('opdHolidaySyncTime','');
 let monthMode='dept',personName=canonicalName(getPreference('monthPerson',''));
 selectedOpds=[...new Set(selectedOpds.flatMap(g=>g==='SURGICAL'?['SURG','ORTHO','URO','NEURO']:g))];
+let erSyncError='',erCheckedAt='';
 let index=new Map(),colors=new Map(),interns=new Set(INTERN_NAMES);
 function rebuild(){
  data.entries=(data.entries||[]).map(e=>({...e,names:(e.names||[]).map(n=>parts(n).join(' / '))}));
  if(data.fixedWeekdayStaff)data.fixedWeekdayStaff=Object.fromEntries(Object.entries(data.fixedWeekdayStaff).map(([d,n])=>[d,canonicalName(n)]));
  index=new Map();interns=new Set(INTERN_NAMES);
- for(const e of data.entries||[]){const k=`${e.date}|${e.dept}|${e.key}`;if(!index.has(k))index.set(k,[]);index.get(k).push(e);if(isInternEntry(e))for(const n of e.names||[])parts(n).forEach(p=>interns.add(p));}
+ for(const e of data.entries||[]){const k=`${e.date}|${e.dept}|${e.key}`;if(!index.has(k))index.set(k,[]);index.get(k).push(e);if(isInternEntry(e)||e.doctorRole==='Intern')for(const n of e.names||[])parts(n).forEach(p=>interns.add(p));}
  const names=[...new Set((data.entries||[]).flatMap(e=>(e.names||[]).flatMap(parts)))].concat(CLINIC_DOCTORS,Object.values(SMC).flat(2).map(r=>r[1]),['มนตรี','อักษราภัค']).map(canonicalName).filter(Boolean).sort((a,b)=>a.localeCompare(b,'th'));
  colors=departmentColors([...new Set(names)]);
 }
@@ -137,14 +140,31 @@ function erCompanions(raw,date){
  if(!['06','07'].includes(date.slice(5,7))||!ER_EP_NAMES.has(first(raw)))return [];
  return [...new Set(parts(raw).slice(1).filter(n=>!ER_EP_NAMES.has(n)))];
 }
+function erShiftNames(date,key){
+ const names=entries(date,'ER',key).flatMap(e=>e.names);
+ return names.length?names:data.erComparisons?.[date+'|'+key]?['']:[];
+}
+function erSyncStatus(){
+ const month=tab==='month'?selectedMonth:viewedDate.slice(0,7);
+ if(month!==ER_SYNC_CONFIG.month||tab==='opd')return '';
+ const feed=data.erFeed;
+ const differences=Object.values(data.erComparisons||{}).filter(c=>c.different).length;
+ const text=feed?'ER-duty · ฉบับจริง รุ่น '+feed.revision+' · ต่างจาก Sheet '+differences+' ช่อง':'ER ยังใช้ Google Sheet · รอตารางฉบับจริงจาก ER-duty';
+ return '<div class="er-sync-status">'+esc(text)+(erSyncError?'<small>'+esc(erSyncError)+' · คงข้อมูลล่าสุดที่อ่านสำเร็จ</small>':'')+'</div>';
+}
 function erAssignment(raw,date,key,title=''){
  const companions=erCompanions(raw,date);
- return card(companions.length?first(raw):(key==='morning'?raw:first(raw)),{title,backup:key==='morning'&&!companions.length,companions});
+ let html=card(companions.length?first(raw):(key==='morning'?raw:first(raw)),{title,backup:key==='morning'&&!companions.length,companions});
+ const comparison=data.erComparisons?.[date+'|'+key];
+ if(!comparison?.different)return html;
+ const badge='<span class="er-sync-warning" aria-label="ชื่อจากสองแหล่งไม่ตรงกัน">!!</span>';
+ html=raw?html.replace('<div class="staff-line">','<div class="staff-line">'+badge):'<div class="assignment er-empty-conflict">'+badge+'<span>ยังไม่ระบุแพทย์ใน ER-duty</span></div>';
+ return '<div class="er-sync-cell conflict">'+html+'<details class="er-sync-details"><summary>เปรียบเทียบชื่อ</summary><div>ER-duty: '+esc(comparison.erNames.join(' / ')||'ว่าง')+'</div><div>Google Sheet: '+esc(comparison.sheetNames.join(' / ')||(comparison.sheetAvailable?'ว่าง':'ยังไม่มีข้อมูลวันที่นี้'))+'</div><small>ER รุ่น '+comparison.revision+' · Sheet '+esc(lastSyncLabel(comparison.sheetSyncedAt))+'</small></details></div>';
 }
 function erRow(cols){
- const day=entries(viewedDate,'ER','morning').flatMap(e=>e.names).map(n=>erAssignment(n,viewedDate,'morning','ER เช้า')).join('')||empty();
+ const day=erShiftNames(viewedDate,'morning').map(n=>erAssignment(n,viewedDate,'morning','ER เช้า')).join('')||empty();
  const nightDate=auto&&bangkokParts().minutes<480?nextDate(viewedDate,-1):viewedDate;
- const shift=(key,title,date)=>entries(date,'ER',key).flatMap(e=>e.names).map(n=>erAssignment(n,date,key,title)).join('')||empty();
+ const shift=(key,title,date)=>erShiftNames(date,key).map(n=>erAssignment(n,date,key,title)).join('')||empty();
  const out=`<div class="er-split">${shift('evening','ER บ่าย',nightDate)}${shift('night','ER ดึก',nightDate)}</div>`;
  if(dutyHoliday(viewedDate,data))return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">ER</button><div class="holiday-er">${day}${shift('evening','ER บ่าย',viewedDate)}${shift('night','ER ดึก',viewedDate)}</div></div>`;
  return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">ER</button><div class="dept-grid">${cols.map(c=>`<div class="duty-cell">${c.key==='in'?day:out}</div>`).join('')}</div></div>`;
@@ -186,7 +206,7 @@ async function syncOpdHolidays(){
 }
 function monthDates(ym){const [y,m]=ym.split('-').map(Number);return Array.from({length:new Date(Date.UTC(y,m,0)).getUTCDate()},(_,i)=>`${ym}-${String(i+1).padStart(2,'0')}`);}
 function monthSlot(date,key){
- if(monthDept==='ER')return entries(date,'ER',key).flatMap(e=>e.names).map(n=>erAssignment(n,date,key)).join('')||empty();
+ if(monthDept==='ER')return erShiftNames(date,key).map(n=>erAssignment(n,date,key)).join('')||empty();
  if(monthDept==='GP'&&opdHoliday(date,data,opdOverrides))return empty();
  if(key==='in'&&dutyHoliday(date,data)&&!['ER','GP','TRANSPORT'].includes(monthDept)){const a=overnight(date,monthDept);return a.name?card(a.name,{minor:a.minor}):empty();}
  if(monthDept==='GP')return entries(date,'GP',key).flatMap(e=>e.names.map(n=>card(n,{title:e.role}))).join('')||empty();
@@ -220,7 +240,7 @@ function personActivities(date,name){
  }
  for(const [key,title,period,start,end] of [['morning','ER เช้า','in',480,960],['evening','ER บ่าย','out',960,1380],['night','ER ดึก','out',1380,1920]]){
   for(const e of entries(date,'ER',key))for(const raw of e.names){
-   if(first(raw)===target)add(period,title,start,end,'ER');
+   if(first(raw)===target)add(period,title+(data.erComparisons?.[date+'|'+key]?.different?' !!':''),start,end,'ER');
    if(erCompanions(raw,date).includes(target))add(period,title+' · คู่ EP '+first(raw),start,end,'ER');
    else if(key==='morning'&&parts(raw).slice(1).includes(target))add(period,title+' · ชื่อที่สอง',start,end,'ER');
   }
@@ -264,12 +284,34 @@ function render(){
  $('date-nav').className='nav-control weekday-'+new Date(viewedDate+'T12:00:00Z').getUTCDay();
  $('view-date').value=viewedDate;$('month-input').value=selectedMonth;$('month-label').textContent=new Intl.DateTimeFormat('en-GB',{month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(selectedMonth+'-01T12:00:00Z'));
  $('today-btn').textContent=monthly?'เดือนนี้':'วันนี้';$('filter-btn').textContent=tab==='opd'?'กรอง OPD':'กรองแผนก';
- $('screen').innerHTML=monthly?renderMonth():tab==='opd'?renderOpd():renderDuty();
- $('demo-banner').hidden=!data.demo;$('sync-time').textContent=lastSyncLabel(data.syncedAt);$('refresh-btn').disabled=!hasConnection()||syncing;renderFilter();
+ $('screen').innerHTML=erSyncStatus()+(monthly?renderMonth():tab==='opd'?renderOpd():renderDuty());
+ $('demo-banner').hidden=!data.demo;$('sync-time').textContent=lastSyncLabel(data.syncedAt);$('refresh-btn').disabled=!(hasConnection()||ER_SYNC_CONFIG.feedUrl)||syncing;renderFilter();
 }
 function hasConnection(){return !!(config.spreadsheetId&&config.apiKey);}
 function banner(message=''){$('alert-banner').hidden=!message;$('alert-banner').textContent=message;}
-async function sync(){syncOpdHolidays();if(syncing||!hasConnection())return;syncing=true;render();try{const fresh=await fetchGoogleSheet(config.spreadsheetId,config.apiKey);await saveSnapshot(fresh);data=fresh;rebuild();banner(fresh.warnings?.length?`พบข้อมูลผิดพลาด ${fresh.warnings.length} รายการในชีต`:'');}catch(e){banner(`ซิงก์ไม่สำเร็จ: ${e.message}`);}finally{syncing=false;render();}}
+async function sync(){
+ if(syncing||(!hasConnection()&&!ER_SYNC_CONFIG.feedUrl))return;
+ syncOpdHolidays();syncing=true;render();
+ try{
+  const [sheetResult,erResult]=await Promise.allSettled([
+   hasConnection()?fetchGoogleSheet(config.spreadsheetId,config.apiKey):Promise.reject(new Error('ยังไม่ได้เชื่อม Google Sheet')),
+   fetchERFeed(ER_SYNC_CONFIG)
+  ]);
+  const fresh=sheetResult.status==='fulfilled'?sheetResult.value:{...data,entries:data.sheetEntries||data.entries};
+  let feed=data.erFeed||null;
+  if(erResult.status==='fulfilled'&&erResult.value){
+   if(!feed||erResult.value.revision>=feed.revision){feed=erResult.value;erSyncError='';erCheckedAt=new Date().toISOString();}
+   else erSyncError='ต้นทางส่งรุ่นเก่ากว่าที่บันทึกไว้';
+  }else if(erResult.status==='rejected')erSyncError=erResult.reason.message||'เชื่อม ER-duty ไม่สำเร็จ';
+  const combined=overlayER(fresh,feed,ER_SYNC_CONFIG);
+  combined.erCheckedAt=erCheckedAt||data.erCheckedAt||'';
+  if(sheetResult.status==='fulfilled'||erResult.status==='fulfilled'&&erResult.value){
+   await saveSnapshot(combined);data=combined;rebuild();
+  }
+  banner(sheetResult.status==='rejected'?'Google Sheet ยังใช้สำเนาล่าสุด: '+sheetResult.reason.message:'');
+ }catch(e){banner('ซิงก์ไม่สำเร็จ: '+e.message);}
+ finally{syncing=false;render();}
+}
 function moveMonth(delta){const d=new Date(selectedMonth+'-01T12:00:00Z');d.setUTCMonth(d.getUTCMonth()+delta);selectedMonth=d.toISOString().slice(0,7);render();}
 function init(){
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;filterOpen=false;render();});
