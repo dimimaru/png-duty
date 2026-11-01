@@ -63,3 +63,34 @@
 .er-empty-conflict{font-size:10px;background:#fff0d8}
 .er-sync-status{font-size:10px;color:#496a80;background:#edf6fc;padding:8px 9px;border-radius:8px;margin:0 0 10px;line-height:1.5}
 .er-sync-status small{display:block;font-size:9px;color:#916130}
+
+.fullscreen-toggle{font-size:10px;font-weight:700;padding:0 8px;color:#145e8b;background:#eef6fb;white-space:nowrap}
+.app.fullscreen-mode{position:fixed;inset:0;z-index:1000;width:100vw;max-width:none;height:100dvh;min-height:0;margin:0;border-radius:0;padding:8px 16px;display:flex;flex-direction:column;overflow:hidden}
+.fullscreen-mode .app-header{margin:0 0 7px;flex:none}
+.fullscreen-mode .app-header h1{font-size:20px}
+.fullscreen-mode .tabbar{margin-bottom:7px;padding:3px;gap:3px}
+.fullscreen-mode .tab{padding:6px 4px}
+.fullscreen-mode .date-toolbar{margin-bottom:7px}
+.fullscreen-mode main{display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden}
+.fullscreen-mode #screen.monitor-layout{flex:1;min-height:0;overflow:auto;padding-bottom:4px}
+.fullscreen-mode footer{display:none}
+.fullscreen-mode .er-sync-status{padding:4px 8px;margin-bottom:5px;flex:none}
+.monitor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+.monitor-column{min-width:0}
+.monitor-column .grid-head{position:static;grid-template-columns:minmax(65px,.35fr) repeat(2,minmax(0,1fr));gap:5px}
+.monitor-column .grid-head>*{font-size:clamp(12px,1.05vw,17px);padding:6px 3px}
+.monitor-column .matrix-row{grid-template-columns:minmax(65px,.35fr) minmax(0,1fr);gap:5px;padding-bottom:3px;margin-bottom:3px}
+.monitor-column .dept-tag{font-size:clamp(12px,1.05vw,16px);line-height:1.2;padding:4px 3px}
+.monitor-column .dept-grid{gap:5px}
+.monitor-column .duty-cell{gap:4px}
+.monitor-column .assignment{min-height:42px;padding:5px 4px;gap:2px}
+.monitor-column .staff-line{white-space:normal;flex-wrap:wrap;gap:4px}
+.monitor-column .staff-line .doctor,.monitor-column .person-link.doctor{font-size:clamp(14px,1.25vw,19px);line-height:1.2;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.monitor-column .role{font-size:clamp(10px,.82vw,13px)}
+.monitor-column .first-call{font-size:10px;padding:2px 4px}
+.monitor-column .first-call small{font-size:11px}
+.monitor-column .er-split .doctor{font-size:clamp(12px,1.05vw,16px)}
+.monitor-column .holiday-er{gap:5px}
+.monitor-column .er-sync-details{font-size:10px}
+@media(max-width:700px){.fullscreen-mode .app{padding:6px}.monitor-grid{gap:6px}.monitor-column .grid-head,.monitor-column .matrix-row{grid-template-columns:48px minmax(0,1fr);gap:3px}.monitor-column .dept-tag{font-size:10px}.monitor-column .staff-line .doctor,.monitor-column .person-link.doctor{font-size:12px}.monitor-column .role{font-size:8px}}
+@media(max-height:850px) and (min-width:701px){.fullscreen-mode .app-header h1{font-size:17px}.fullscreen-mode .tab{padding:4px}.fullscreen-mode .date-toolbar{margin-bottom:4px}.fullscreen-mode .monitor-column .matrix-row{padding-bottom:1px;margin-bottom:1px}.fullscreen-mode .monitor-column .assignment{min-height:34px;padding:3px}.fullscreen-mode .monitor-column .role{font-size:9px}}
