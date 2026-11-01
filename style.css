@@ -130,3 +130,17 @@
 .fullscreen-mode .monitor-in-stack{grid-auto-flow:column;grid-template-columns:repeat(var(--in-cols,1),minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:3px}
 .fullscreen-mode .monitor-column .monitor-in-stack .assignment{padding:3px;overflow:visible}
 .fullscreen-mode .monitor-column .shared-cell,.fullscreen-mode .monitor-column .duty-cell{min-height:0}
+
+/* Quarter-width all-day departments and compact monitor controls. */
+.monitor-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-height:0}
+.fullscreen-mode .monitor-column .monitor-pair .matrix-row{min-width:0;grid-template-columns:max-content minmax(0,1fr)}
+.fullscreen-mode .monitor-column .monitor-med-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));grid-auto-flow:row}
+.dept-grid.transport-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.transport-morning{grid-column:1}.transport-evening{grid-column:3/span 2}
+.exit-fullscreen{display:none}.fullscreen-mode .exit-fullscreen{display:block}
+.fullscreen-mode #screen{grid-area:screen;min-height:0;overflow:auto}
+.tabbar{position:relative;isolation:isolate;touch-action:pan-y;user-select:none}
+.tabbar::before{content:'';position:absolute;left:4px;top:4px;bottom:4px;width:calc((100% - 8px)/3);border-radius:9px;background:white;box-shadow:0 1px 5px #25465c18;transform:translateX(calc(var(--tab-index,0)*100%));transition:transform .18s ease;z-index:-1}
+.tabbar .tab.active{background:transparent;box-shadow:none}
+.fullscreen-mode .tabbar{padding:4px;gap:0}
+@media(prefers-reduced-motion:reduce){.tabbar::before{transition:none}}
