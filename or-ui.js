@@ -26,7 +26,7 @@ export function renderOrSchedule(viewedDate,layout,colors,personLink,holidayChec
  const weekdays=Object.keys(OR_DAY_LABELS).map(Number);
  const dayChoices=weekdays.map(day=>`<button type="button" data-or-day="${day}" class="or-day-button ${layout==='day'&&selected===day?'active':''}" aria-pressed="${layout==='day'&&selected===day}">${OR_DAY_LABELS[day]}</button>`).join('');
  const toolbar=`<div class="or-controls"><div class="or-day-choices" role="group" aria-label="เลือกวันผ่าตัด">${dayChoices}</div><button class="or-view-button" type="button" data-or-layout="${layout==='week'?'day':'week'}">${layout==='week'?'ดูรายวัน':'ดูทั้งสัปดาห์'}</button></div>`;
- const intro=`<div class="or-intro"><strong>ตารางห้องผ่าตัด (OR)</strong><small>ตารางประจำสัปดาห์ · ฉบับแก้ไข 5.2</small></div><p class="or-explain">สีตามแพทย์ = <b>เจ้าของห้อง</b> กดชื่อดูตารางรายคนได้ · ช่องสีเทา = <b>แผนกใช้เมื่อมีเคส</b> ไม่ได้ระบุแพทย์เจ้าของห้อง · M = Minor</p>`;
+ const intro=`<div class="or-intro"><strong>ตารางห้องผ่าตัด (OR)</strong><small>ตารางประจำสัปดาห์ · ฉบับแก้ไข 5.2</small></div><p class="or-explain">สีตามแพทย์ = <b>เจ้าของห้อง</b> กดชื่อดูตารางรายคนได้ · ช่องสีเทา = <b>แผนกใช้เมื่อมีเคส</b> ไม่ได้ระบุแพทย์เจ้าของห้อง · M = Minor · เป็นผังสิทธิ์ใช้ห้อง ไม่ใช่รายการผ่าตัดจริง</p>`;
  if(layout==='week'){
   const heading=weekdays.map(day=>`<th colspan="2" class="or-weekday weekday-${day}"><button type="button" data-or-day="${day}">${OR_DAY_LABELS[day]}<small>${shortDate(nextDate(monday,day-1))}</small></button></th>`).join('');
   const periods=weekdays.map(()=>'<th>เช้า</th><th>บ่าย</th>').join('');
