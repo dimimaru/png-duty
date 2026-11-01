@@ -44,3 +44,19 @@ test('08:00 new shift starts',()=>{
   assert.equal(p.er[0].key,'morning');assert.equal(p.regular[0].key,'in');
   assert.equal(shiftState(p.er[0],'2026-10-31',true,{date:'2026-10-31',minutes:480}),'active');
 });
+
+test('daytime preview remains muted until 07:49 and switches at 07:50',()=>{
+  const date='2026-11-02';
+  const before=dailyColumns(date,true,{date,minutes:469});
+  assert.deepEqual(before.regular.map(c=>c.key),['out','in']);
+  assert.equal(before.regular[0].date,'2026-11-01');
+  assert.equal(before.regular[1].preview,true);
+  const after=dailyColumns(date,true,{date,minutes:470});
+  assert.deepEqual(after.regular.map(c=>c.key),['in','out']);
+  assert.equal(after.regular[0].preview,undefined);
+  assert.equal(after.regular[1].date,date);
+  // Manual date browsing is never greyed out.
+  const manual=dailyColumns(date,false,{date,minutes:30});
+  assert.deepEqual(manual.regular.map(c=>c.key),['in','out']);
+  assert.equal(manual.regular[0].preview,undefined);
+});
