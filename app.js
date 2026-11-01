@@ -124,15 +124,15 @@ function overnight(date,dept){
 function dayAssignments(date,dept){return morning(date,dept).map(a=>card(a.name,a)).join('')||empty();}
 function dayColumns(){return auto&&bangkokParts().minutes<480?[{key:'out',date:nextDate(viewedDate,-1),label:'นอกเวลา'},{key:'in',date:viewedDate,label:'ในเวลา'}]:[{key:'in',date:viewedDate,label:'ในเวลา'},{key:'out',date:viewedDate,label:'นอกเวลา'}];}
 function departmentRow(dept,cols){
- if(dutyHoliday(viewedDate,data)){const a=overnight(viewedDate,dept);return `<div class="matrix-row"><button class="dept-tag" data-dept="${dept}">${esc($('app').classList.contains('fullscreen-mode')?({MAXILO:'MAX',FORENSIC:'FORENSIC',TRANSPORT:'OPD','OB-GYN':'OB/GYN'}[dept]||dept):(DEPT_LABELS[dept]||dept))}</button><div class="dept-grid"><div class="shared-cell">${a.name?card(a.name,{minor:a.minor}):empty()}</div></div></div>`;}
+ if(dutyHoliday(viewedDate,data)){const a=overnight(viewedDate,dept);return `<div class="matrix-row" data-department="${dept}"><button class="dept-tag" data-dept="${dept}">${esc($('app').classList.contains('fullscreen-mode')?({MAXILO:'MAX',FORENSIC:'FORENSIC',TRANSPORT:'OPD','OB-GYN':'OB/GYN'}[dept]||dept):(DEPT_LABELS[dept]||dept))}</button><div class="dept-grid"><div class="shared-cell${['MED','PED','OB-GYN','PSY'].includes(dept)?' monitor-large-out':''}">${a.name?card(a.name,{minor:a.minor}):empty()}</div></div></div>`;}
  const ins=cols.find(c=>c.key==='in'),outs=cols.find(c=>c.key==='out'),am=morning(ins.date,dept),pm=overnight(outs.date,dept);
  const richMonitor=$('app').classList.contains('fullscreen-mode')&&['MED','PED','OB-GYN','PSY'].includes(dept);
  const match=!richMonitor&&ins.date===outs.date?am.findIndex(a=>a.name&&a.name===pm.name&&!a.phone):-1,remaining=am.filter((_,i)=>i!==match);
  const monitor=$('app').classList.contains('fullscreen-mode'),stackedIn=monitor&&['MED','PED'].includes(dept);
  const inHtml=stackedIn?`<div class="monitor-in-stack${dept==='MED'?' monitor-med-grid':''}" style="--in-cols:${dept==='MED'?2:Math.max(1,Math.ceil(remaining.length/3))}">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
  const shared=match>=0?`<div class="shared-cell${am[match].title?' with-shared-role':''}">${am[match].title?`<span class="shared-role" style="left:${cols[0].key==='in'?'0':'50%'}">${esc(am[match].title)}</span>`:''}${card(pm.name,{minor:pm.minor})}</div>`:'';
- const rest=match>=0?(remaining.length?`<div class="duty-cell" style="grid-column:${cols[0].key==='in'?1:2}">${inHtml}</div>`:''):cols.map(c=>`<div class="duty-cell">${c.key==='in'?inHtml:outHtml}</div>`).join('');
- return `<div class="matrix-row${am.length===1&&match>=0?' monitor-compact':''}"><button class="dept-tag" data-dept="${dept}">${esc(DEPT_LABELS[dept]||dept)}</button><div class="dept-grid">${shared}${rest}</div></div>`;
+ const rest=match>=0?(remaining.length?`<div class="duty-cell" style="grid-column:${cols[0].key==='in'?1:2}">${inHtml}</div>`:''):cols.map(c=>`<div class="duty-cell${richMonitor&&c.key==='out'?' monitor-large-out':''}">${c.key==='in'?inHtml:outHtml}</div>`).join('');
+ return `<div class="matrix-row${am.length===1&&match>=0?' monitor-compact':''}" data-department="${dept}"><button class="dept-tag" data-dept="${dept}">${esc(DEPT_LABELS[dept]||dept)}</button><div class="dept-grid">${shared}${rest}</div></div>`;
 }
 // June/July ER entries retain "EP / paired intern" from the source sheet.
 // Exclude a second EP: that remains the existing morning backup display.
@@ -184,10 +184,11 @@ function renderDuty(){
   const weight=d=>{
    if(d==='ER')return 1.5;
    if(d==='TRANSPORT')return 1;
+   if(['SURG','ORTHO'].includes(d))return 1.25;
    const am=morning(ins.date,d),pm=overnight(outs.date,d);
    if(am.length===1&&am[0].name===pm.name&&!am[0].title)return .65;
    if(d==='MED'&&!dutyHoliday(viewedDate,data))return 2.6;
-   if(d==='PED'&&!dutyHoliday(viewedDate,data))return 3.6;
+   if(d==='PED'&&!dutyHoliday(viewedDate,data))return 3;
    return Math.max(1,am.length*1.1);
   };
   const sameStaff=d=>{
