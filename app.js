@@ -135,7 +135,7 @@ function departmentRow(dept,cols){
  const richMonitor=$('app').classList.contains('fullscreen-mode')&&['MED','PED','OB-GYN','PSY'].includes(dept);
  const match=!richMonitor&&ins.date===outs.date?am.findIndex(a=>a.name&&a.name===pm.name&&!a.phone):-1,remaining=am.filter((_,i)=>i!==match);
  const monitor=$('app').classList.contains('fullscreen-mode'),stackedIn=monitor&&['MED','PED'].includes(dept);
- const inHtml=stackedIn?`<div class="monitor-in-stack${dept==='MED'?' monitor-med-grid':''}" style="--in-cols:${dept==='MED'?2:Math.max(1,Math.ceil(remaining.length/3))}">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
+ const inHtml=stackedIn?`<div class="monitor-in-stack${dept==='MED'?' monitor-med-grid':''}" style="--in-cols:${dept==='MED'?2:Math.max(1,Math.ceil(remaining.length/3))};--in-rows:${dept==='MED'?Math.max(1,Math.ceil(remaining.length/2)):Math.max(1,Math.min(3,remaining.length))}">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
  const shared=match>=0?`<div class="shared-cell${am[match].title?' with-shared-role':''}">${am[match].title?`<span class="shared-role" style="left:${cols[0].key==='in'?'0':'50%'}">${esc(am[match].title)}</span>`:''}${card(pm.name,{minor:pm.minor})}</div>`:'';
  const rest=match>=0?(remaining.length?`<div class="duty-cell" style="grid-column:${cols[0].key==='in'?1:2}">${inHtml}</div>`:''):cols.map(c=>`<div class="duty-cell${richMonitor&&c.key==='out'?' monitor-large-out':''}${c.preview?' upcoming-in-shift':''}">${c.key==='in'?inHtml:outHtml}</div>`).join('');
  return `<div class="matrix-row${am.length===1&&match>=0?' monitor-compact':''}" data-department="${dept}"><button class="dept-tag" data-dept="${dept}">${departmentLabel(dept)}</button><div class="dept-grid">${shared}${rest}</div></div>`;
@@ -209,12 +209,20 @@ function renderDuty(){
    else {units.push({depts:[d],small:d==='URO'&&sameStaff(d)});consumed.add(d);}
   }
   const unitWeight=u=>Math.max(...u.depts.map(weight));
+   // Keep each duty card legible even on short landscape displays.
+   const unitMinHeight=u=>Math.max(...u.depts.map(d=>{
+    if(d==='ER')return Math.max(60,erShiftNames(viewedDate,'morning').length*48);
+    if(d==='TRANSPORT')return 52;
+    const count=morning(ins.date,d).length;
+    const rows=d==='MED'?Math.max(1,Math.ceil(count/2)):d==='PED'?Math.max(1,Math.min(3,count)):Math.max(1,count);
+    return Math.max(52,rows*48+(rows-1)*3);
+   }));
   const total=units.reduce((n,u)=>n+unitWeight(u),0);
   let split=1,best=Infinity,sum=0;
   for(let i=1;i<units.length;i++){sum+=unitWeight(units[i-1]);const difference=Math.abs(total-2*sum);if(difference<best){best=difference;split=i;}}
   const groups=units.length>1?[units.slice(0,split),units.slice(split)]:[units];
   const unitHtml=u=>u.small?`<div class="monitor-pair">${rows(u.depts)}</div>`:rows(u.depts);
-  return `<div class="monitor-grid">${groups.map(group=>`<section class="monitor-column" style="grid-template-rows:${group.map(u=>`minmax(0,${unitWeight(u)}fr)`).join(' ')}">${group.map(unitHtml).join('')}</section>`).join('')}</div>`;
+  return `<div class="monitor-grid${dutyHoliday(viewedDate,data)?'':' weekday-monitor'}">${groups.map(group=>`<section class="monitor-column" style="grid-template-rows:${group.map(u=>dutyHoliday(viewedDate,data)?`minmax(0,${unitWeight(u)}fr)`:`minmax(${unitMinHeight(u)}px,${unitWeight(u)}fr)`).join(' ')}">${group.map(unitHtml).join('')}</section>`).join('')}</div>`;
  }
  return heading+rows(visible);
 }
@@ -318,7 +326,7 @@ function renderFilter(){
  $('filter-panel').hidden=!filterOpen||tab==='month';$('filter-btn').setAttribute('aria-expanded',String(filterOpen));
  $('filter-panel').innerHTML=`<div class="filter-title">${isOpd?'เลือก OPD':'เลือกแผนก'}<button id="select-all">เลือกทั้งหมด</button></div><div class="filter-options">${all.map(d=>`<label><input class="filter-check" type="checkbox" value="${d}" ${selected.includes(d)?'checked':''}>${esc(isOpd?OPD_LABELS[d]||d:DEPT_LABELS[d]||d)}</label>`).join('')}</div>`;
 }
-let monitorFitFrame=0;
+let monitorFitFrame=0,lastRenderKey='';
 function scheduleMonitorFit(){
  if(monitorFitFrame)cancelAnimationFrame(monitorFitFrame);
  monitorFitFrame=requestAnimationFrame(()=>{monitorFitFrame=0;fitMonitorNames();});
@@ -336,11 +344,13 @@ function fitMonitorNames(){
   const apply=()=>{name.style.fontSize=size+'px';trainees.forEach((n,i)=>n.style.fontSize=Math.min(traineeSizes[i],size*.76)+'px');};
   apply();
   const overflows=()=>cell.scrollHeight>cell.clientHeight+1||cell.scrollWidth>cell.clientWidth+1||[name,...trainees].some(n=>n.scrollWidth>n.clientWidth+1);
-  while(size>12&&overflows()){size-=.5;apply();}
+  while(size>11&&overflows()){size-=.5;apply();}
  }
 }
 function render(){
  if(auto)viewedDate=bangkokParts().date;
+ const renderKey=[tab,viewedDate,selectedMonth,$('app').classList.contains('fullscreen-mode')].join('|');
+ const keepScroll=renderKey===lastRenderKey?$('screen').scrollTop:0;
  document.querySelector('.tabbar')?.style.setProperty('--tab-index',String(['duty','opd','month'].indexOf(tab)));
  document.querySelectorAll('[data-tab]').forEach(b=>{const active=b.dataset.tab===tab;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));});
  const monthly=tab==='month';$('date-nav').hidden=monthly;$('month-nav').hidden=!monthly;$('filter-btn').hidden=monthly;
@@ -348,7 +358,10 @@ function render(){
  $('view-date').value=viewedDate;$('month-input').value=selectedMonth;$('month-label').textContent=new Intl.DateTimeFormat('en-GB',{month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(selectedMonth+'-01T12:00:00Z'));
  $('today-btn').textContent=monthly?'เดือนนี้':'วันนี้';$('filter-btn').textContent=tab==='opd'?'กรอง OPD':'กรองแผนก';
  $('screen').classList.toggle('monitor-layout',$('app').classList.contains('fullscreen-mode')&&tab==='duty');
+ $('screen').classList.toggle('weekday-monitor-layout',$('app').classList.contains('fullscreen-mode')&&tab==='duty'&&!dutyHoliday(viewedDate,data));
  $('screen').innerHTML=erSyncStatus()+(monthly?renderMonth():tab==='opd'?renderOpd():renderDuty());
+ $('screen').scrollTop=keepScroll;
+ lastRenderKey=renderKey;
  $('demo-banner').hidden=!data.demo;$('sync-time').textContent=lastSyncLabel(data.syncedAt);$('refresh-btn').disabled=!(hasConnection()||ER_SYNC_CONFIG.feedUrl)||syncing;renderFilter();scheduleMonitorFit();
 }
 function hasConnection(){return !!(config.spreadsheetId&&config.apiKey);}
