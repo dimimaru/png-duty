@@ -1,4 +1,4 @@
-const CACHE = 'png-duty-shell-v9-er-realnames-20261031';
+const CACHE = 'png-duty-shell-v10-fullscreen-monitor-20261101';
 const SHELL = ['./', './index.html', './style.css', './app.js', './parser.js', './schedule.js', './sheets.js', './storage.js', './demo.js', './config.js', './opd.js', './names.js', './er-sync.js', './er-sync-config.js', './manifest.webmanifest','./assets/icon-192.png','./assets/icon-512.png','./assets/icon-180.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
