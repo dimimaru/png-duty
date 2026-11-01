@@ -92,7 +92,7 @@ function entries(date,dept,key){return index.get(`${date}|${dept}|${key}`)||inde
 function empty(){return '<div class="empty-cell">—</div>';}
 function personLink(name,cls='doctor'){
  const n=canonicalName(name);
- if(!n||n==='แพทย์ลา'||n.startsWith('โทร'))return `<span class="${cls}">${esc(n)}</span>`;
+ if(!n||['แพทย์ลา','วชิระภูเก็ต','emer วชิระฯ'].includes(n)||n.startsWith('โทร'))return `<span class="${cls}">${esc(n)}</span>`;
  return `<button type="button" class="person-link ${cls}" data-person="${esc(n)}">${esc(n)}</button>`;
 }
 function card(name,{title='',minor='',intern=false,backup=false,phone=false,companions=[]}={}){
@@ -119,7 +119,7 @@ function morning(date,dept){
 }
 function overnight(date,dept){
  const es=entries(date,dept,'out'),staff=es.find(e=>!isInternEntry(e)),trainee=es.find(e=>isInternEntry(e));
- const raw=first(staff?.names?.[0]);return {name:dept==='FORENSIC'?(raw==='อักษราภัค'?raw:'มนตรี'):raw,minor:trainee?.names?.[0]||''};
+ const raw=first(staff?.names?.[0]);return {name:dept==='FORENSIC'?(raw==='อักษราภัค'?raw:'มนตรี'):raw||(dept==='NEURO'?'วชิระภูเก็ต':dept==='MAXILO'?'emer วชิระฯ':''),minor:trainee?.names?.[0]||''};
 }
 function dayAssignments(date,dept){return morning(date,dept).map(a=>card(a.name,a)).join('')||empty();}
 function dayColumns(){return auto&&bangkokParts().minutes<480?[{key:'out',date:nextDate(viewedDate,-1),label:'นอกเวลา'},{key:'in',date:viewedDate,label:'ในเวลา'}]:[{key:'in',date:viewedDate,label:'ในเวลา'},{key:'out',date:viewedDate,label:'นอกเวลา'}];}
@@ -129,7 +129,7 @@ function departmentRow(dept,cols){
  const richMonitor=$('app').classList.contains('fullscreen-mode')&&['MED','PED','OB-GYN','PSY'].includes(dept);
  const match=!richMonitor&&ins.date===outs.date?am.findIndex(a=>a.name&&a.name===pm.name&&!a.phone):-1,remaining=am.filter((_,i)=>i!==match);
  const monitor=$('app').classList.contains('fullscreen-mode'),stackedIn=monitor&&['MED','PED'].includes(dept);
- const inHtml=stackedIn?`<div class="monitor-in-stack" style="--in-cols:${Math.max(1,Math.ceil(remaining.length/3))}">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
+ const inHtml=stackedIn?`<div class="monitor-in-stack${dept==='MED'?' monitor-med-grid':''}" style="--in-cols:${dept==='MED'?2:Math.max(1,Math.ceil(remaining.length/3))}">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
  const shared=match>=0?`<div class="shared-cell${am[match].title?' with-shared-role':''}">${am[match].title?`<span class="shared-role" style="left:${cols[0].key==='in'?'0':'50%'}">${esc(am[match].title)}</span>`:''}${card(pm.name,{minor:pm.minor})}</div>`:'';
  const rest=match>=0?(remaining.length?`<div class="duty-cell" style="grid-column:${cols[0].key==='in'?1:2}">${inHtml}</div>`:''):cols.map(c=>`<div class="duty-cell">${c.key==='in'?inHtml:outHtml}</div>`).join('');
  return `<div class="matrix-row${am.length===1&&match>=0?' monitor-compact':''}"><button class="dept-tag" data-dept="${dept}">${esc(DEPT_LABELS[dept]||dept)}</button><div class="dept-grid">${shared}${rest}</div></div>`;
@@ -171,8 +171,8 @@ function erRow(cols){
  return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">ER</button><div class="dept-grid">${cols.map(c=>`<div class="duty-cell">${c.key==='in'?day:out}</div>`).join('')}</div></div>`;
 }
 function transportRow(cols){
- const cells=cols.map(c=>{const h=entries(c.date,'TRANSPORT',c.key).flatMap(e=>e.names).map(n=>card(first(n))).join('')||empty();return `<div class="duty-cell">${c.key==='out'?`<div class="er-split">${h}<div class="night-blank"></div></div>`:h}</div>`;}).join('');
- return `<div class="matrix-row"><button class="dept-tag" data-dept="TRANSPORT">OPD<br>นอกเวลา</button><div class="dept-grid">${cells}</div></div>`;
+ const cells=cols.map(c=>{const h=entries(c.date,'TRANSPORT',c.key).flatMap(e=>e.names).map(n=>card(first(n))).join('')||empty();return `<div class="duty-cell transport-${c.key==='in'?'morning':'evening'}">${c.key==='out'?`<div class="er-split">${h}<div class="night-blank"></div></div>`:h}</div>`;}).join('');
+ return `<div class="matrix-row"><button class="dept-tag" data-dept="TRANSPORT">OPD<br>นอกเวลา</button><div class="dept-grid transport-grid">${cells}</div></div>`;
 }
 function renderDuty(){
  const cols=dayColumns(),order=DEPT_ORDER.filter(d=>!['ER','TRANSPORT'].includes(d)).concat(['ER','TRANSPORT']);
@@ -186,14 +186,28 @@ function renderDuty(){
    if(d==='TRANSPORT')return 1;
    const am=morning(ins.date,d),pm=overnight(outs.date,d);
    if(am.length===1&&am[0].name===pm.name&&!am[0].title)return .65;
-   if(['MED','PED'].includes(d)&&!dutyHoliday(viewedDate,data))return 3.6;
+   if(d==='MED'&&!dutyHoliday(viewedDate,data))return 2.6;
+   if(d==='PED'&&!dutyHoliday(viewedDate,data))return 3.6;
    return Math.max(1,am.length*1.1);
   };
-  const total=visible.reduce((n,d)=>n+weight(d),0);
+  const sameStaff=d=>{
+   const am=morning(ins.date,d),pm=overnight(outs.date,d);
+   return ins.date===outs.date&&am.length===1&&!!pm.name&&am[0].name===pm.name;
+  };
+  const consumed=new Set(),units=[];
+  for(const d of visible){
+   if(consumed.has(d))continue;
+   const pair=d==='SURG'?['SURG','ORTHO']:d==='ENT'||d==='EYE'?['EYE','ENT']:null;
+   if(pair&&pair.every(p=>visible.includes(p)&&sameStaff(p))){units.push({depts:pair,small:true});pair.forEach(p=>consumed.add(p));}
+   else {units.push({depts:[d],small:d==='URO'&&sameStaff(d)});consumed.add(d);}
+  }
+  const unitWeight=u=>Math.max(...u.depts.map(weight));
+  const total=units.reduce((n,u)=>n+unitWeight(u),0);
   let split=1,best=Infinity,sum=0;
-  for(let i=1;i<visible.length;i++){sum+=weight(visible[i-1]);const difference=Math.abs(total-2*sum);if(difference<best){best=difference;split=i;}}
-  const groups=visible.length>1?[visible.slice(0,split),visible.slice(split)]:[visible];
-  return `<div class="monitor-grid">${groups.map(group=>`<section class="monitor-column" style="grid-template-rows:${group.map(d=>`minmax(0,${weight(d)}fr)`).join(' ')}">${rows(group)}</section>`).join('')}</div>`;
+  for(let i=1;i<units.length;i++){sum+=unitWeight(units[i-1]);const difference=Math.abs(total-2*sum);if(difference<best){best=difference;split=i;}}
+  const groups=units.length>1?[units.slice(0,split),units.slice(split)]:[units];
+  const unitHtml=u=>u.small?`<div class="monitor-pair">${rows(u.depts)}</div>`:rows(u.depts);
+  return `<div class="monitor-grid">${groups.map(group=>`<section class="monitor-column" style="grid-template-rows:${group.map(u=>`minmax(0,${unitWeight(u)}fr)`).join(' ')}">${group.map(unitHtml).join('')}</section>`).join('')}</div>`;
  }
  return heading+rows(visible);
 }
@@ -299,6 +313,7 @@ function renderFilter(){
 }
 function render(){
  if(auto)viewedDate=bangkokParts().date;
+ document.querySelector('.tabbar')?.style.setProperty('--tab-index',String(['duty','opd','month'].indexOf(tab)));
  document.querySelectorAll('[data-tab]').forEach(b=>{const active=b.dataset.tab===tab;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));});
  const monthly=tab==='month';$('date-nav').hidden=monthly;$('month-nav').hidden=!monthly;$('filter-btn').hidden=monthly;
  $('date-nav').className='nav-control weekday-'+new Date(viewedDate+'T12:00:00Z').getUTCDay();
@@ -349,6 +364,13 @@ async function toggleFullscreen(){
 }
 function init(){
  $('fullscreen-btn').onclick=toggleFullscreen;
+ $('exit-fullscreen-btn').onclick=toggleFullscreen;
+ const tabbar=document.querySelector('.tabbar');
+ let swipeStart=null,suppressTabClickUntil=0;
+ tabbar.addEventListener('pointerdown',e=>{if(!e.isPrimary||e.button>0)return;swipeStart={x:e.clientX,y:e.clientY};});
+ tabbar.addEventListener('pointercancel',()=>{swipeStart=null;});
+ tabbar.addEventListener('pointerup',e=>{if(!swipeStart)return;const dx=e.clientX-swipeStart.x,dy=e.clientY-swipeStart.y;swipeStart=null;if(Math.abs(dx)<25||Math.abs(dx)<Math.abs(dy))return;const tabs=['duty','opd','month'];tab=tabs[Math.max(0,Math.min(2,tabs.indexOf(tab)+(dx<0?1:-1)))];filterOpen=false;suppressTabClickUntil=Date.now()+400;render();});
+ tabbar.addEventListener('click',e=>{if(Date.now()<suppressTabClickUntil){e.preventDefault();e.stopImmediatePropagation();}},true);
  document.addEventListener('fullscreenchange',()=>updateFullscreenUI(document.fullscreenElement===$('app')));
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;filterOpen=false;render();});
  $('view-date').onchange=e=>{viewedDate=e.target.value||bangkokParts().date;auto=false;render();};
