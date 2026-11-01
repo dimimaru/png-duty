@@ -128,7 +128,8 @@ function departmentRow(dept,cols){
  if(dutyHoliday(viewedDate,data)){const a=overnight(viewedDate,dept);return `<div class="matrix-row"><button class="dept-tag" data-dept="${dept}">${esc(DEPT_LABELS[dept]||dept)}</button><div class="dept-grid"><div class="shared-cell">${a.name?card(a.name,{minor:a.minor}):empty()}</div></div></div>`;}
  const ins=cols.find(c=>c.key==='in'),outs=cols.find(c=>c.key==='out'),am=morning(ins.date,dept),pm=overnight(outs.date,dept);
  const match=ins.date===outs.date?am.findIndex(a=>a.name&&a.name===pm.name&&!a.phone):-1,remaining=am.filter((_,i)=>i!==match);
- const inHtml=remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
+ const monitor=$('app').classList.contains('fullscreen-mode'),stackedIn=monitor&&['MED','PED'].includes(dept);
+ const inHtml=stackedIn?`<div class="monitor-in-stack">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
  const shared=match>=0?`<div class="shared-cell${am[match].title?' with-shared-role':''}">${am[match].title?`<span class="shared-role" style="left:${cols[0].key==='in'?'0':'50%'}">${esc(am[match].title)}</span>`:''}${card(pm.name,{minor:pm.minor})}</div>`:'';
  const rest=match>=0?(remaining.length?`<div class="duty-cell" style="grid-column:${cols[0].key==='in'?1:2}">${inHtml}</div>`:''):cols.map(c=>`<div class="duty-cell">${c.key==='in'?inHtml:outHtml}</div>`).join('');
  return `<div class="matrix-row"><button class="dept-tag" data-dept="${dept}">${esc(DEPT_LABELS[dept]||dept)}</button><div class="dept-grid">${shared}${rest}</div></div>`;
