@@ -182,3 +182,9 @@
  .fullscreen-mode .monitor-column .dept-tag{flex-direction:column;gap:2px;padding:2px 3px}
  .fullscreen-mode .dept-emoji{display:block;font-size:clamp(13px,1.15vw,19px);line-height:1;flex:none}
 }
+
+/* Upcoming daytime roster shown at right from midnight until 07:49 (Bangkok time). */
+.grid-head .upcoming-in-shift{background:#f3f5f7;color:#8c9ba7}
+.duty-cell.upcoming-in-shift .assignment{background:#e9edf0;color:#84919c;filter:grayscale(1);opacity:.65}
+.duty-cell.upcoming-in-shift .first-call{background:#e3e7eb;color:#83909b}
+.duty-cell.upcoming-in-shift .empty-cell{opacity:.55;filter:grayscale(1)}
