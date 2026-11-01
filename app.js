@@ -174,8 +174,16 @@ function transportRow(cols){
  return `<div class="matrix-row"><button class="dept-tag" data-dept="TRANSPORT">OPD<br>นอกเวลา</button><div class="dept-grid">${cells}</div></div>`;
 }
 function renderDuty(){
- const cols=dayColumns(),order=DEPT_ORDER.filter(d=>!['ER','TRANSPORT'].includes(d));
- return `<div class="grid-head"><span>แผนก</span>${dutyHoliday(viewedDate,data)?'<strong class="holiday-heading">นอกเวลาวันหยุด</strong>':cols.map(c=>`<strong>${c.label}</strong>`).join('')}</div>${order.filter(d=>selectedDepts.includes(d)).map(d=>departmentRow(d,cols)).join('')}${selectedDepts.includes('ER')?erRow(cols):''}${selectedDepts.includes('TRANSPORT')?transportRow(cols):''}`;
+ const cols=dayColumns(),order=DEPT_ORDER.filter(d=>!['ER','TRANSPORT'].includes(d)).concat(['ER','TRANSPORT']);
+ const visible=order.filter(d=>selectedDepts.includes(d));
+ const heading=`<div class="grid-head"><span>แผนก</span>${dutyHoliday(viewedDate,data)?'<strong class="holiday-heading">นอกเวลาวันหยุด</strong>':cols.map(c=>`<strong>${c.label}</strong>`).join('')}</div>`;
+ const rows=list=>list.map(d=>d==='ER'?erRow(cols):d==='TRANSPORT'?transportRow(cols):departmentRow(d,cols)).join('');
+ if($('app').classList.contains('fullscreen-mode')){
+  const split=Math.ceil(visible.length/2);
+  const groups=visible.length>1?[visible.slice(0,split),visible.slice(split)]:[visible];
+  return `<div class="monitor-grid">${groups.map(group=>`<section class="monitor-column">${heading}${rows(group)}</section>`).join('')}</div>`;
+ }
+ return heading+rows(visible);
 }
 
 function opdChoices(){return opdMode==='smc'?['MED','OB-GYN','SURG','ORTHO','URO','EYE','PSY','DENTAL']:OPD_GROUPS;}
@@ -284,6 +292,7 @@ function render(){
  $('date-nav').className='nav-control weekday-'+new Date(viewedDate+'T12:00:00Z').getUTCDay();
  $('view-date').value=viewedDate;$('month-input').value=selectedMonth;$('month-label').textContent=new Intl.DateTimeFormat('en-GB',{month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(selectedMonth+'-01T12:00:00Z'));
  $('today-btn').textContent=monthly?'เดือนนี้':'วันนี้';$('filter-btn').textContent=tab==='opd'?'กรอง OPD':'กรองแผนก';
+ $('screen').classList.toggle('monitor-layout',$('app').classList.contains('fullscreen-mode')&&tab==='duty');
  $('screen').innerHTML=erSyncStatus()+(monthly?renderMonth():tab==='opd'?renderOpd():renderDuty());
  $('demo-banner').hidden=!data.demo;$('sync-time').textContent=lastSyncLabel(data.syncedAt);$('refresh-btn').disabled=!(hasConnection()||ER_SYNC_CONFIG.feedUrl)||syncing;renderFilter();
 }
@@ -313,7 +322,22 @@ async function sync(){
  finally{syncing=false;render();}
 }
 function moveMonth(delta){const d=new Date(selectedMonth+'-01T12:00:00Z');d.setUTCMonth(d.getUTCMonth()+delta);selectedMonth=d.toISOString().slice(0,7);render();}
+function updateFullscreenUI(active){
+ $('app').classList.toggle('fullscreen-mode',active);
+ $('fullscreen-btn').textContent=active?'ออกเต็มจอ':'เต็มจอ';
+ $('fullscreen-btn').setAttribute('aria-label',active?'ออกจากเต็มจอ':'เปิดเต็มจอ');
+ $('fullscreen-btn').title=active?'ออกจากเต็มจอ':'เปิดเต็มจอ';
+ render();
+}
+async function toggleFullscreen(){
+ const app=$('app'),active=app.classList.contains('fullscreen-mode')||document.fullscreenElement===app;
+ if(active){if(document.fullscreenElement)await document.exitFullscreen();else updateFullscreenUI(false);return;}
+ try{if(app.requestFullscreen){await app.requestFullscreen();updateFullscreenUI(true);}else updateFullscreenUI(true);}
+ catch{updateFullscreenUI(true);}
+}
 function init(){
+ $('fullscreen-btn').onclick=toggleFullscreen;
+ document.addEventListener('fullscreenchange',()=>updateFullscreenUI(document.fullscreenElement===$('app')));
  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;filterOpen=false;render();});
  $('view-date').onchange=e=>{viewedDate=e.target.value||bangkokParts().date;auto=false;render();};
  $('prev-date').onclick=()=>{viewedDate=nextDate(viewedDate,-1);auto=false;render();};$('next-date').onclick=()=>{viewedDate=nextDate(viewedDate,1);auto=false;render();};
