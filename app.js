@@ -312,7 +312,7 @@ function personActivities(date,name){
  }
  if(!opdHoliday(date,data,opdOverrides))for(const slot of orOwnerSlots(date,target)){
   const place=slot.room==='M'?'Minor':'ห้อง '+slot.room,session=slot.period==='am'?'เช้า':'บ่าย';
-  add('in','OR '+place+' · '+slot.department+' ('+session+')',slot.period==='am'?480:780,slot.period==='am'?720:960,'OR');
+  add('in','OR '+place+' · '+slot.department+' (เจ้าของห้อง '+session+')',slot.period==='am'?480:780,slot.period==='am'?720:960,'OR');
  }
  return found;
 }
