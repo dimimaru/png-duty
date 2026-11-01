@@ -211,11 +211,11 @@ function renderDuty(){
   const unitWeight=u=>Math.max(...u.depts.map(weight));
    // Keep each duty card legible even on short landscape displays.
    const unitMinHeight=u=>Math.max(...u.depts.map(d=>{
-    if(d==='ER')return Math.max(60,erShiftNames(viewedDate,'morning').length*48);
-    if(d==='TRANSPORT')return 52;
+    if(d==='ER')return Math.max(70,erShiftNames(viewedDate,'morning').length*60);
+    if(d==='TRANSPORT')return 64;
     const count=morning(ins.date,d).length;
     const rows=d==='MED'?Math.max(1,Math.ceil(count/2)):d==='PED'?Math.max(1,Math.min(3,count)):Math.max(1,count);
-    return Math.max(52,rows*48+(rows-1)*3);
+    return Math.max(u.small?80:64,rows*60+(rows-1)*4);
    }));
   const total=units.reduce((n,u)=>n+unitWeight(u),0);
   let split=1,best=Infinity,sum=0;
