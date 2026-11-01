@@ -166,3 +166,19 @@
 @media(min-width:1400px){.fullscreen-mode .dept-emoji{display:inline-block;flex:none;font-size:14px;line-height:1}}
 
 .dept-tag{text-align:center}
+
+/* Larger landscape-monitor names fitted to the existing cell dimensions. */
+@media(orientation:landscape){
+ .fullscreen-mode .monitor-column .staff-line>.doctor,
+ .fullscreen-mode .monitor-column .monitor-compact .staff-line>.doctor{font-size:clamp(18px,1.55vw,26px);line-height:1.15}
+ .fullscreen-mode .monitor-column .monitor-in-stack .staff-line>.doctor{font-size:clamp(16px,1.35vw,23px)}
+ .fullscreen-mode .monitor-column .monitor-large-out .staff-line>.doctor{font-size:clamp(24px,min(14cqw,48cqh),72px)}
+ .fullscreen-mode .monitor-column [data-department="SURG"] .staff-line>.doctor,
+ .fullscreen-mode .monitor-column [data-department="ORTHO"] .staff-line>.doctor{font-size:clamp(20px,1.7vw,30px)}
+ .fullscreen-mode .monitor-column .staff-line>.first-call,
+ .fullscreen-mode .monitor-column .monitor-large-out .staff-line>.first-call{font-size:clamp(12px,1.05vw,17px);line-height:1.2;padding:2px 4px}
+ .fullscreen-mode .monitor-column .first-call .intern-name{font-size:inherit}
+ .fullscreen-mode .monitor-column .backup{font-size:clamp(11px,.95vw,15px)}
+ .fullscreen-mode .monitor-column .dept-tag{flex-direction:column;gap:2px;padding:2px 3px}
+ .fullscreen-mode .dept-emoji{display:block;font-size:clamp(13px,1.15vw,19px);line-height:1;flex:none}
+}
