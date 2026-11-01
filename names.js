@@ -2,6 +2,7 @@
 export const NAME_ALIASES={
  'กฤษดา':'กฤษฎา',
  'กชภิกา':'กชนิภา',
+ 'ทนงศักร':'ทนงศักดิ์',
  'สทธิเกียรติ':'สุทธิเกียรติ'
 };
 export function canonicalName(raw){
