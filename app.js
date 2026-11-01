@@ -5,7 +5,7 @@ import {OPD_GROUPS,OPD_LABELS,clinicsForDate,CLINIC_DOCTORS,SMC,SMC_COLUMNS,duty
 import {fetchOpdHolidayOverrides} from './sheets.js';
 import {fetchGoogleSheet} from './sheets.js';
 import {DEPT_LABELS,DEPT_ORDER,INTERN_NAMES} from './parser.js';
-import {bangkokParts,nextDate,lastSyncLabel} from './schedule.js';
+import {bangkokParts,nextDate,lastSyncLabel,dailyColumns} from './schedule.js';
 import {loadSnapshot,saveSnapshot,getPreference,setPreference} from './storage.js';
 import {makeDemo} from './demo.js';
 import {DEFAULT_CONFIG} from './config.js';
@@ -122,7 +122,7 @@ function overnight(date,dept){
  const raw=first(staff?.names?.[0]);return {name:dept==='FORENSIC'?(raw==='อักษราภัค'?raw:'มนตรี'):raw||(dept==='NEURO'?'วชิระภูเก็ต':dept==='MAXILO'?'emer วชิระฯ':''),minor:trainee?.names?.[0]||''};
 }
 function dayAssignments(date,dept){return morning(date,dept).map(a=>card(a.name,a)).join('')||empty();}
-function dayColumns(){return auto&&bangkokParts().minutes<480?[{key:'out',date:nextDate(viewedDate,-1),label:'นอกเวลา'},{key:'in',date:viewedDate,label:'ในเวลา'}]:[{key:'in',date:viewedDate,label:'ในเวลา'},{key:'out',date:viewedDate,label:'นอกเวลา'}];}
+function dayColumns(){return dailyColumns(viewedDate,auto).regular;}
 function departmentLabel(dept){
  const labels={SURG:'Sx',NEURO:'NeuSx',MAXILO:'Max',FORENSIC:'ชันสูตร',TRANSPORT:'OPD\nนอกเวลา'};
  const icons={MED:'🩺',SURG:'🔪','OB-GYN':'🤰',PED:'🧸',ORTHO:'🦴',PSY:'💬',NEURO:'🧠',ENT:'👂',EYE:'👁️',RADIO:'🩻',URO:'🚻',ANES:'💉',MAXILO:'🦷',FORENSIC:'💀',ER:'🚑',TRANSPORT:'🏥'};
@@ -137,7 +137,7 @@ function departmentRow(dept,cols){
  const monitor=$('app').classList.contains('fullscreen-mode'),stackedIn=monitor&&['MED','PED'].includes(dept);
  const inHtml=stackedIn?`<div class="monitor-in-stack${dept==='MED'?' monitor-med-grid':''}" style="--in-cols:${dept==='MED'?2:Math.max(1,Math.ceil(remaining.length/3))}">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
  const shared=match>=0?`<div class="shared-cell${am[match].title?' with-shared-role':''}">${am[match].title?`<span class="shared-role" style="left:${cols[0].key==='in'?'0':'50%'}">${esc(am[match].title)}</span>`:''}${card(pm.name,{minor:pm.minor})}</div>`:'';
- const rest=match>=0?(remaining.length?`<div class="duty-cell" style="grid-column:${cols[0].key==='in'?1:2}">${inHtml}</div>`:''):cols.map(c=>`<div class="duty-cell${richMonitor&&c.key==='out'?' monitor-large-out':''}">${c.key==='in'?inHtml:outHtml}</div>`).join('');
+ const rest=match>=0?(remaining.length?`<div class="duty-cell" style="grid-column:${cols[0].key==='in'?1:2}">${inHtml}</div>`:''):cols.map(c=>`<div class="duty-cell${richMonitor&&c.key==='out'?' monitor-large-out':''}${c.preview?' upcoming-in-shift':''}">${c.key==='in'?inHtml:outHtml}</div>`).join('');
  return `<div class="matrix-row${am.length===1&&match>=0?' monitor-compact':''}" data-department="${dept}"><button class="dept-tag" data-dept="${dept}">${departmentLabel(dept)}</button><div class="dept-grid">${shared}${rest}</div></div>`;
 }
 // June/July ER entries retain "EP / paired intern" from the source sheet.
@@ -170,20 +170,20 @@ function erAssignment(raw,date,key,title=''){
 }
 function erRow(cols){
  const day=erShiftNames(viewedDate,'morning').map(n=>erAssignment(n,viewedDate,'morning','ER เช้า')).join('')||empty();
- const nightDate=auto&&bangkokParts().minutes<480?nextDate(viewedDate,-1):viewedDate;
+ const nightDate=cols.find(c=>c.key==='out')?.date||viewedDate;
  const shift=(key,title,date)=>erShiftNames(date,key).map(n=>erAssignment(n,date,key,title)).join('')||empty();
  const out=`<div class="er-split">${shift('evening','ER บ่าย',nightDate)}${shift('night','ER ดึก',nightDate)}</div>`;
  if(dutyHoliday(viewedDate,data))return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="holiday-er">${day}${shift('evening','ER บ่าย',viewedDate)}${shift('night','ER ดึก',viewedDate)}</div></div>`;
- return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="dept-grid">${cols.map(c=>`<div class="duty-cell">${c.key==='in'?day:out}</div>`).join('')}</div></div>`;
+ return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="dept-grid">${cols.map(c=>`<div class="duty-cell${c.preview?' upcoming-in-shift':''}">${c.key==='in'?day:out}</div>`).join('')}</div></div>`;
 }
 function transportRow(cols){
- const cells=cols.map(c=>{const h=entries(c.date,'TRANSPORT',c.key).flatMap(e=>e.names).map(n=>card(first(n))).join('')||empty();return `<div class="duty-cell transport-${c.key==='in'?'morning':'evening'}">${c.key==='out'?`<div class="er-split">${h}<div class="night-blank"></div></div>`:h}</div>`;}).join('');
+ const cells=cols.map(c=>{const h=entries(c.date,'TRANSPORT',c.key).flatMap(e=>e.names).map(n=>card(first(n))).join('')||empty();return `<div class="duty-cell transport-${c.key==='in'?'morning':'evening'}${c.preview?' upcoming-in-shift':''}">${c.key==='out'?`<div class="er-split">${h}<div class="night-blank"></div></div>`:h}</div>`;}).join('');
  return `<div class="matrix-row"><button class="dept-tag" data-dept="TRANSPORT">${departmentLabel('TRANSPORT')}</button><div class="dept-grid transport-grid">${cells}</div></div>`;
 }
 function renderDuty(){
  const cols=dayColumns(),order=DEPT_ORDER.filter(d=>!['ER','TRANSPORT'].includes(d)).concat(['ER','TRANSPORT']);
  const visible=order.filter(d=>selectedDepts.includes(d));
- const heading=`<div class="grid-head"><span>แผนก</span>${dutyHoliday(viewedDate,data)?'<strong class="holiday-heading">นอกเวลาวันหยุด</strong>':cols.map(c=>`<strong>${c.label}</strong>`).join('')}</div>`;
+ const heading=`<div class="grid-head"><span>แผนก</span>${dutyHoliday(viewedDate,data)?'<strong class="holiday-heading">นอกเวลาวันหยุด</strong>':cols.map(c=>`<strong class="${c.preview?'upcoming-in-shift':''}">${c.label}</strong>`).join('')}</div>`;
  const rows=list=>list.map(d=>d==='ER'?erRow(cols):d==='TRANSPORT'?transportRow(cols):departmentRow(d,cols)).join('');
  if($('app').classList.contains('fullscreen-mode')){
   const ins=cols.find(c=>c.key==='in'),outs=cols.find(c=>c.key==='out');
