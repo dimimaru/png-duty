@@ -144,3 +144,13 @@
 .tabbar .tab.active{background:transparent;box-shadow:none}
 .fullscreen-mode .tabbar{padding:4px;gap:0}
 @media(prefers-reduced-motion:reduce){.tabbar::before{transition:none}}
+
+/* Large staff names use the spare out-of-hours cell; interns stay small below. */
+.fullscreen-mode .monitor-column .monitor-large-out{container-type:size;min-width:0;min-height:0}
+.fullscreen-mode .monitor-column .monitor-large-out>.assignment{height:100%;width:100%;padding:5px}
+.fullscreen-mode .monitor-column .monitor-large-out .staff-line{flex-direction:column;flex-wrap:nowrap;width:100%;gap:5px}
+.fullscreen-mode .monitor-column .monitor-large-out .staff-line>.doctor{font-size:clamp(18px,min(12cqw,45cqh),64px);line-height:1.15;font-weight:750;white-space:normal;overflow-wrap:anywhere}
+.fullscreen-mode .monitor-column .monitor-large-out .staff-line>.first-call{font-size:10px;padding:2px 4px;line-height:1.3;flex:none}
+.fullscreen-mode .monitor-column .monitor-large-out .first-call .intern-name{font-size:inherit}
+.fullscreen-mode .monitor-column [data-department="SURG"] .staff-line>.doctor,
+.fullscreen-mode .monitor-column [data-department="ORTHO"] .staff-line>.doctor{font-size:clamp(17px,1.45vw,27px);line-height:1.2;font-weight:700}
