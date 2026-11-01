@@ -158,9 +158,11 @@
 /* Every department label reserves the same width, including paired rows. */
 .dept-emoji{display:none}
 .dept-label-text{line-height:1.2}
-.fullscreen-mode .monitor-grid{--dept-label-width:clamp(96px,6.8vw,132px)}
+.fullscreen-mode .monitor-grid{--dept-label-width:clamp(72px,5vw,84px)}
 .fullscreen-mode .monitor-column .matrix-row,
 .fullscreen-mode .monitor-column .monitor-pair .matrix-row{grid-template-columns:var(--dept-label-width) minmax(0,1fr);column-gap:5px}
-.fullscreen-mode .monitor-column .dept-tag{width:100%;max-width:none;min-width:0;display:flex;align-items:center;justify-content:flex-start;gap:5px;padding:3px 5px;overflow:visible;text-overflow:clip;white-space:normal}
+.fullscreen-mode .monitor-column .dept-tag{width:100%;max-width:none;min-width:0;display:flex;align-items:center;justify-content:center;text-align:center;gap:4px;padding:3px 4px;overflow:visible;text-overflow:clip;white-space:normal}
 .fullscreen-mode .dept-label-text{white-space:nowrap}
 @media(min-width:1400px){.fullscreen-mode .dept-emoji{display:inline-block;flex:none;font-size:14px;line-height:1}}
+
+.dept-tag{text-align:center}
