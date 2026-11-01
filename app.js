@@ -106,9 +106,8 @@ function roleTitle(e){const r=e.role||'';if(roles[r])return roles[r];if(/NICU/i.
 function morning(date,dept){
  if(dutyHoliday(date,data)){const a=overnight(date,dept);return a.name?[{name:a.name}]:[];}
  if(dept==='NEURO'){
-  const source=entries(date,'NEURO','out').find(e=>!isInternEntry(e));
-  if(source?.names?.length)return [{name:first(source.names[0])}];
-  return (data.entries||[]).some(e=>e.date===date)?[{name:'แพทย์ลา'}]:[];
+  const source=entries(date,'NEURO','in').find(e=>!isInternEntry(e));
+  return [{name:source?.names?.length?first(source.names[0]):'ชรินทร์'}];
  }
  if(dept==='FORENSIC')return [{name:data.fixedWeekdayStaff?.FORENSIC==='อักษราภัค'?'อักษราภัค':'มนตรี'}];
  if(dept==='ANES')return [{name:'โทร 3203',phone:true}];
@@ -127,12 +126,13 @@ function dayColumns(){return auto&&bangkokParts().minutes<480?[{key:'out',date:n
 function departmentRow(dept,cols){
  if(dutyHoliday(viewedDate,data)){const a=overnight(viewedDate,dept);return `<div class="matrix-row"><button class="dept-tag" data-dept="${dept}">${esc($('app').classList.contains('fullscreen-mode')?({MAXILO:'MAX',FORENSIC:'FORENSIC',TRANSPORT:'OPD','OB-GYN':'OB/GYN'}[dept]||dept):(DEPT_LABELS[dept]||dept))}</button><div class="dept-grid"><div class="shared-cell">${a.name?card(a.name,{minor:a.minor}):empty()}</div></div></div>`;}
  const ins=cols.find(c=>c.key==='in'),outs=cols.find(c=>c.key==='out'),am=morning(ins.date,dept),pm=overnight(outs.date,dept);
- const match=ins.date===outs.date?am.findIndex(a=>a.name&&a.name===pm.name&&!a.phone):-1,remaining=am.filter((_,i)=>i!==match);
+ const richMonitor=$('app').classList.contains('fullscreen-mode')&&['MED','PED','OB-GYN','PSY'].includes(dept);
+ const match=!richMonitor&&ins.date===outs.date?am.findIndex(a=>a.name&&a.name===pm.name&&!a.phone):-1,remaining=am.filter((_,i)=>i!==match);
  const monitor=$('app').classList.contains('fullscreen-mode'),stackedIn=monitor&&['MED','PED'].includes(dept);
- const inHtml=stackedIn?`<div class="monitor-in-stack">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
+ const inHtml=stackedIn?`<div class="monitor-in-stack" style="--in-cols:${Math.max(1,Math.ceil(remaining.length/3))}">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
  const shared=match>=0?`<div class="shared-cell${am[match].title?' with-shared-role':''}">${am[match].title?`<span class="shared-role" style="left:${cols[0].key==='in'?'0':'50%'}">${esc(am[match].title)}</span>`:''}${card(pm.name,{minor:pm.minor})}</div>`:'';
  const rest=match>=0?(remaining.length?`<div class="duty-cell" style="grid-column:${cols[0].key==='in'?1:2}">${inHtml}</div>`:''):cols.map(c=>`<div class="duty-cell">${c.key==='in'?inHtml:outHtml}</div>`).join('');
- return `<div class="matrix-row"><button class="dept-tag" data-dept="${dept}">${esc(DEPT_LABELS[dept]||dept)}</button><div class="dept-grid">${shared}${rest}</div></div>`;
+ return `<div class="matrix-row${am.length===1&&match>=0?' monitor-compact':''}"><button class="dept-tag" data-dept="${dept}">${esc(DEPT_LABELS[dept]||dept)}</button><div class="dept-grid">${shared}${rest}</div></div>`;
 }
 // June/July ER entries retain "EP / paired intern" from the source sheet.
 // Exclude a second EP: that remains the existing morning backup display.
@@ -180,9 +180,20 @@ function renderDuty(){
  const heading=`<div class="grid-head"><span>แผนก</span>${dutyHoliday(viewedDate,data)?'<strong class="holiday-heading">นอกเวลาวันหยุด</strong>':cols.map(c=>`<strong>${c.label}</strong>`).join('')}</div>`;
  const rows=list=>list.map(d=>d==='ER'?erRow(cols):d==='TRANSPORT'?transportRow(cols):departmentRow(d,cols)).join('');
  if($('app').classList.contains('fullscreen-mode')){
-  const split=Math.ceil(visible.length/2);
+  const ins=cols.find(c=>c.key==='in'),outs=cols.find(c=>c.key==='out');
+  const weight=d=>{
+   if(d==='ER')return 1.5;
+   if(d==='TRANSPORT')return 1;
+   const am=morning(ins.date,d),pm=overnight(outs.date,d);
+   if(am.length===1&&am[0].name===pm.name&&!am[0].title)return .65;
+   if(['MED','PED'].includes(d)&&!dutyHoliday(viewedDate,data))return 3.6;
+   return Math.max(1,am.length*1.1);
+  };
+  const total=visible.reduce((n,d)=>n+weight(d),0);
+  let split=1,best=Infinity,sum=0;
+  for(let i=1;i<visible.length;i++){sum+=weight(visible[i-1]);const difference=Math.abs(total-2*sum);if(difference<best){best=difference;split=i;}}
   const groups=visible.length>1?[visible.slice(0,split),visible.slice(split)]:[visible];
-  return `<div class="monitor-grid">${groups.map(group=>`<section class="monitor-column">${heading}${rows(group)}</section>`).join('')}</div>`;
+  return `<div class="monitor-grid">${groups.map(group=>`<section class="monitor-column" style="grid-template-rows:${group.map(d=>`minmax(0,${weight(d)}fr)`).join(' ')}">${rows(group)}</section>`).join('')}</div>`;
  }
  return heading+rows(visible);
 }
