@@ -292,3 +292,56 @@
  }
  .fullscreen-mode .monitor-grid.weekday-monitor .dept-emoji{font-size:12px}
 }
+
+/* OR weekly room ownership: doctor backgrounds reuse each person's roster colour. */
+.opd-tabs button[data-opd-mode="or"]{min-width:54px}
+.or-intro{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:5px;margin:14px 0 3px;color:#24465d}
+.or-intro strong{font-size:15px}
+.or-intro small{font-size:10px;color:#718593}
+.or-explain{font-size:11px;color:#586f7f;line-height:1.65;margin:5px 0 10px}
+.or-controls{display:flex;align-items:stretch;gap:6px;margin:10px 0 8px}
+.or-day-choices{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;flex:1;min-width:0}
+.or-day-button,.or-view-button{border:1px solid #dbe5eb;border-radius:7px;padding:7px 2px;background:#f6f9fb;font-size:10px;font-weight:650;min-height:36px;white-space:normal;line-height:1.25}
+.or-day-button.active{background:#17638f;border-color:#17638f;color:white}
+.or-view-button{flex:none;padding:7px 9px;background:#fff;color:#17638f}
+.or-day-button:focus-visible,.or-view-button:focus-visible,.or-weekday button:focus-visible{outline:2px solid #17638f;outline-offset:2px}
+.or-date-title{font-size:12px;font-weight:750;color:#365d73;margin:12px 0 8px}
+.or-closed-warning{margin:4px 0 8px;padding:8px;background:#fff3df;border-radius:8px;color:#8c6220;font-size:10px;line-height:1.5}
+.or-day-board{display:grid;gap:4px;min-width:0}
+.or-day-heading,.or-day-row{display:grid;grid-template-columns:53px repeat(2,minmax(0,1fr));gap:4px;align-items:stretch;min-width:0}
+.or-day-heading>span{padding:8px 3px;border-radius:6px;background:#edf3f7;color:#425d70;font-size:11px;font-weight:700;text-align:center}
+.or-room{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;font-size:11px;font-weight:800;color:#31526a;border-radius:7px;background:#e5eff6}
+.or-room small{font-size:8px;font-weight:500;color:#687f90;text-align:center}
+.or-day-row:has(.or-room small) .or-room{background:#e6e5f3;color:#595281}
+.or-session{display:flex;flex-direction:column;gap:4px;min-width:0;padding:3px;background:#f8fafc;border-radius:8px}
+.or-entry{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;min-width:0;min-height:46px;padding:8px 9px;border-radius:7px;overflow-wrap:anywhere}
+.or-owner{background:var(--or-person,#e9edf1);color:#253e51}
+.or-department-only{background:#f0f3f6;color:#576b79;border:1px dashed #cad5de}
+.or-specialty{font-size:10px;line-height:1.2;font-weight:650;color:inherit;opacity:.78}
+.person-link.or-person{display:block;font-size:13px;font-weight:800;line-height:1.3;white-space:normal;overflow-wrap:anywhere;text-align:left;text-decoration:underline;text-decoration-color:#60798990;text-underline-offset:3px;max-width:100%}
+.or-as-needed{font-size:9px;color:#8799a5}
+.or-empty{display:grid;place-items:center;background:#f3f6f8;border-radius:6px;min-height:40px;color:#b5c1c8}
+.or-week-hint{font-size:10px;color:#718593;margin:8px 0 5px}
+.or-week-scroll{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;border:1px solid #e1eaf0;border-radius:9px;padding:3px}
+.or-week-table{border-collapse:separate;border-spacing:3px;table-layout:fixed;min-width:1250px;width:100%}
+.or-week-table th,.or-week-table td{vertical-align:top;border-radius:6px}
+.or-week-table thead th{background:#edf3f7;font-size:10px;color:#34566d;padding:7px 2px;text-align:center}
+.or-week-table .or-week-room{position:sticky;left:0;z-index:1;background:#e5eff6;min-width:67px;width:67px;font-size:11px;font-weight:800;text-align:center;vertical-align:middle}
+.or-week-table thead .or-week-room{z-index:2}
+.or-week-table .or-weekday{padding:0}
+.or-weekday button{display:block;width:100%;height:100%;border:0;padding:8px 4px;background:transparent;font-weight:750;font-size:11px}
+.or-weekday button small{display:block;font-size:9px;font-weight:500;margin-top:2px}
+.or-week-table .or-week-slot{min-width:110px;width:110px;background:#f8fafc;padding:3px}
+.or-week-slot .or-entry{margin-bottom:3px;min-height:48px;padding:5px 4px}
+.or-week-slot .or-entry:last-child{margin-bottom:0}
+.or-week-slot .person-link.or-person{font-size:11px}
+.or-week-slot .or-specialty{font-size:9px}
+.or-week-slot .or-as-needed{font-size:8px}
+.or-activity{background:#eaf3ec;border:1px solid #b7d8c6}
+@media(max-width:400px){
+ .or-day-heading,.or-day-row{grid-template-columns:43px repeat(2,minmax(0,1fr));gap:3px}
+ .or-day-button{font-size:9px}
+ .or-view-button{font-size:9px;padding:6px}
+ .or-entry{padding:6px 5px;min-height:44px}
+ .person-link.or-person{font-size:12px}
+}
