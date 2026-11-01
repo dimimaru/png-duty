@@ -109,3 +109,16 @@
 .fullscreen-mode .monitor-column .assignment{min-height:0;overflow:hidden}
 .fullscreen-mode .monitor-column .staff-line .doctor,.fullscreen-mode .monitor-column .person-link.doctor{font-size:clamp(12px,1.05vw,16px)}
 .fullscreen-mode .monitor-in-stack{height:100%;grid-template-rows:repeat(3,minmax(0,1fr))}
+
+.fullscreen-mode .app-header{display:none}
+.fullscreen-mode main{display:grid;grid-template-columns:minmax(185px,.55fr) minmax(0,1.45fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"tabs date" "screen screen";gap:4px 10px}
+.fullscreen-mode .tabbar{grid-area:tabs;align-self:center;margin:0;white-space:nowrap}
+.fullscreen-mode .date-toolbar{grid-area:date;align-self:center;margin:0;gap:4px}
+.fullscreen-mode .date-toolbar .nav-control{height:30px;flex:1}
+.fullscreen-mode .date-toolbar .nav-control>button{width:24px;font-size:19px}
+.fullscreen-mode .date-toolbar .nav-control input[type=date]{font-size:11px}
+.fullscreen-mode .date-toolbar .small-button{height:30px;font-size:9px;padding:0 6px}
+.fullscreen-mode #screen.monitor-layout{grid-area:screen}
+.fullscreen-mode .monitor-column .grid-head{display:none}
+.fullscreen-mode .monitor-column .matrix-row{grid-template-columns:fit-content(78px) minmax(0,1fr)}
+.fullscreen-mode .monitor-column .dept-tag{max-width:78px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(11px,.9vw,14px);text-decoration:none}
