@@ -124,8 +124,8 @@ function overnight(date,dept){
 function dayAssignments(date,dept){return morning(date,dept).map(a=>card(a.name,a)).join('')||empty();}
 function dayColumns(){return auto&&bangkokParts().minutes<480?[{key:'out',date:nextDate(viewedDate,-1),label:'นอกเวลา'},{key:'in',date:viewedDate,label:'ในเวลา'}]:[{key:'in',date:viewedDate,label:'ในเวลา'},{key:'out',date:viewedDate,label:'นอกเวลา'}];}
 function departmentLabel(dept){
- const labels={SURG:'Sx',NEURO:'NeuSx',MAXILO:'Maxillo',FORENSIC:'FP',TRANSPORT:'OPD\nนอกเวลา'};
- const icons={MED:'🩺',SURG:'🔪','OB-GYN':'🤰',PED:'🧸',ORTHO:'🦴',PSY:'🧠',NEURO:'🧠',ENT:'👂',EYE:'👁️',RADIO:'🩻',URO:'🚻',ANES:'💉',MAXILO:'🦷',FORENSIC:'🔬',ER:'🚑',TRANSPORT:'🏥'};
+ const labels={SURG:'Sx',NEURO:'NeuSx',MAXILO:'Max',FORENSIC:'ชันสูตร',TRANSPORT:'OPD\nนอกเวลา'};
+ const icons={MED:'🩺',SURG:'🔪','OB-GYN':'🤰',PED:'🧸',ORTHO:'🦴',PSY:'💬',NEURO:'🧠',ENT:'👂',EYE:'👁️',RADIO:'🩻',URO:'🚻',ANES:'💉',MAXILO:'🦷',FORENSIC:'💀',ER:'🚑',TRANSPORT:'🏥'};
  const label=dept==='OB-GYN'?'OB\nGYN':labels[dept]||DEPT_LABELS[dept]||dept;
  return `<span class="dept-label-text">${label.split('\n').map(esc).join('<br>')}</span>${icons[dept]?`<span class="dept-emoji" aria-hidden="true">${icons[dept]}</span>`:''}`;
 }
@@ -318,6 +318,27 @@ function renderFilter(){
  $('filter-panel').hidden=!filterOpen||tab==='month';$('filter-btn').setAttribute('aria-expanded',String(filterOpen));
  $('filter-panel').innerHTML=`<div class="filter-title">${isOpd?'เลือก OPD':'เลือกแผนก'}<button id="select-all">เลือกทั้งหมด</button></div><div class="filter-options">${all.map(d=>`<label><input class="filter-check" type="checkbox" value="${d}" ${selected.includes(d)?'checked':''}>${esc(isOpd?OPD_LABELS[d]||d:DEPT_LABELS[d]||d)}</label>`).join('')}</div>`;
 }
+let monitorFitFrame=0;
+function scheduleMonitorFit(){
+ if(monitorFitFrame)cancelAnimationFrame(monitorFitFrame);
+ monitorFitFrame=requestAnimationFrame(()=>{monitorFitFrame=0;fitMonitorNames();});
+}
+function fitMonitorNames(){
+ if(!$('app').classList.contains('fullscreen-mode')||tab!=='duty'||window.matchMedia?.('(orientation: landscape)').matches===false)return;
+ for(const cell of $('screen').querySelectorAll('.assignment')){
+  const name=cell.querySelector('.staff-line>.doctor');
+  if(!name)continue;
+  name.style.fontSize='';
+  const trainees=[...cell.querySelectorAll('.first-call')];
+  trainees.forEach(n=>n.style.fontSize='');
+  let size=parseFloat(getComputedStyle(name).fontSize);
+  const traineeSizes=trainees.map(n=>parseFloat(getComputedStyle(n).fontSize));
+  const apply=()=>{name.style.fontSize=size+'px';trainees.forEach((n,i)=>n.style.fontSize=Math.min(traineeSizes[i],size*.76)+'px');};
+  apply();
+  const overflows=()=>cell.scrollHeight>cell.clientHeight+1||cell.scrollWidth>cell.clientWidth+1||[name,...trainees].some(n=>n.scrollWidth>n.clientWidth+1);
+  while(size>12&&overflows()){size-=.5;apply();}
+ }
+}
 function render(){
  if(auto)viewedDate=bangkokParts().date;
  document.querySelector('.tabbar')?.style.setProperty('--tab-index',String(['duty','opd','month'].indexOf(tab)));
@@ -328,7 +349,7 @@ function render(){
  $('today-btn').textContent=monthly?'เดือนนี้':'วันนี้';$('filter-btn').textContent=tab==='opd'?'กรอง OPD':'กรองแผนก';
  $('screen').classList.toggle('monitor-layout',$('app').classList.contains('fullscreen-mode')&&tab==='duty');
  $('screen').innerHTML=erSyncStatus()+(monthly?renderMonth():tab==='opd'?renderOpd():renderDuty());
- $('demo-banner').hidden=!data.demo;$('sync-time').textContent=lastSyncLabel(data.syncedAt);$('refresh-btn').disabled=!(hasConnection()||ER_SYNC_CONFIG.feedUrl)||syncing;renderFilter();
+ $('demo-banner').hidden=!data.demo;$('sync-time').textContent=lastSyncLabel(data.syncedAt);$('refresh-btn').disabled=!(hasConnection()||ER_SYNC_CONFIG.feedUrl)||syncing;renderFilter();scheduleMonitorFit();
 }
 function hasConnection(){return !!(config.spreadsheetId&&config.apiKey);}
 function banner(message=''){$('alert-banner').hidden=!message;$('alert-banner').textContent=message;}
@@ -371,6 +392,9 @@ async function toggleFullscreen(){
 }
 function init(){
  $('fullscreen-btn').onclick=toggleFullscreen;
+ window.addEventListener('resize',scheduleMonitorFit);
+ if(typeof ResizeObserver!=='undefined')new ResizeObserver(scheduleMonitorFit).observe($('screen'));
+ document.fonts?.ready.then(scheduleMonitorFit);
  $('exit-fullscreen-btn').onclick=toggleFullscreen;
  const tabbar=document.querySelector('.tabbar');
  let swipeStart=null,suppressTabClickUntil=0;
