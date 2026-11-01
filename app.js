@@ -124,7 +124,7 @@ function overnight(date,dept){
 function dayAssignments(date,dept){return morning(date,dept).map(a=>card(a.name,a)).join('')||empty();}
 function dayColumns(){return auto&&bangkokParts().minutes<480?[{key:'out',date:nextDate(viewedDate,-1),label:'นอกเวลา'},{key:'in',date:viewedDate,label:'ในเวลา'}]:[{key:'in',date:viewedDate,label:'ในเวลา'},{key:'out',date:viewedDate,label:'นอกเวลา'}];}
 function departmentLabel(dept){
- const labels={NEURO:'NeuroSx',MAXILO:'Maxillo',FORENSIC:'Forensic',TRANSPORT:'OPD\nนอกเวลา'};
+ const labels={SURG:'Sx',NEURO:'NeuSx',MAXILO:'Maxillo',FORENSIC:'FP',TRANSPORT:'OPD\nนอกเวลา'};
  const icons={MED:'🩺',SURG:'🔪','OB-GYN':'🤰',PED:'🧸',ORTHO:'🦴',PSY:'🧠',NEURO:'🧠',ENT:'👂',EYE:'👁️',RADIO:'🩻',URO:'🚻',ANES:'💉',MAXILO:'🦷',FORENSIC:'🔬',ER:'🚑',TRANSPORT:'🏥'};
  const label=dept==='OB-GYN'?'OB\nGYN':labels[dept]||DEPT_LABELS[dept]||dept;
  return `<span class="dept-label-text">${label.split('\n').map(esc).join('<br>')}</span>${icons[dept]?`<span class="dept-emoji" aria-hidden="true">${icons[dept]}</span>`:''}`;
