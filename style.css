@@ -345,3 +345,16 @@
  .or-entry{padding:6px 5px;min-height:44px}
  .person-link.or-person{font-size:12px}
 }
+
+/* PNG Duty: alternate whole department row backgrounds, not doctor cards */
+.matrix-row.dept-row-white,
+.matrix-row.dept-row-gray {
+  border-radius: 8px;
+  padding: 4px 5px;
+  border-bottom-color: transparent;
+}
+.matrix-row.dept-row-white { background-color: #ffffff; }
+.matrix-row.dept-row-gray { background-color: #edf1f5; }
+/* Keep the landscape fullscreen roster compact. */
+.fullscreen-mode .monitor-column .matrix-row.dept-row-white,
+.fullscreen-mode .monitor-column .matrix-row.dept-row-gray { padding: 2px 3px; }
