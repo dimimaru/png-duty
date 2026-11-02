@@ -192,7 +192,12 @@ function renderDuty(){
  const cols=dayColumns(),order=DEPT_ORDER.filter(d=>!['ER','TRANSPORT'].includes(d)).concat(['ER','TRANSPORT']);
  const visible=order.filter(d=>selectedDepts.includes(d));
  const heading=`<div class="grid-head"><span>แผนก</span>${dutyHoliday(viewedDate,data)?'<strong class="holiday-heading">นอกเวลาวันหยุด</strong>':cols.map(c=>`<strong class="${c.preview?'upcoming-in-shift':''}">${c.label}</strong>`).join('')}</div>`;
- const rows=list=>list.map(d=>d==='ER'?erRow(cols):d==='TRANSPORT'?transportRow(cols):departmentRow(d,cols)).join('');
+ const rows=list=>list.map(d=>{
+  const html=d==='ER'?erRow(cols):d==='TRANSPORT'?transportRow(cols):departmentRow(d,cols);
+  // Stripe departments by their visible order, including filtered and fullscreen layouts.
+  const stripe=visible.indexOf(d)%2===0?'dept-row-white':'dept-row-gray';
+  return html.replace('class="matrix-row', 'class="matrix-row '+stripe);
+ }).join('');
  if($('app').classList.contains('fullscreen-mode')){
   const ins=cols.find(c=>c.key==='in'),outs=cols.find(c=>c.key==='out');
   const weight=d=>{
