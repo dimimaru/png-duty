@@ -20,6 +20,11 @@ export function activeRegularSlot(minutes) { return minutes >= 480 && minutes < 
  * The 07:50 layout handover is independent of this 08:00/15:50 shading.
  * null means keep existing colours (overnight, handover, holidays or manual dates).
  */
+// Any doctor assigned to both morning and out-of-hours stays coloured in both.
+export function continuousDutyNames(inNames,outNames){
+ const morning=new Set(inNames.filter(Boolean));
+ return new Set(outNames.filter(name=>morning.has(name)));
+}
 export function fullscreenMutedDutyKey(selectedDate,isAuto,isHoliday,now=bangkokParts()){
  if(!isAuto||isHoliday||selectedDate!==now.date)return null;
  if(now.minutes>=480 && now.minutes<950)return 'out';
