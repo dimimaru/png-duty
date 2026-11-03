@@ -15,6 +15,17 @@ export const DISPLAY_HANDOVER_MINUTES = 7 * 60 + 50;
 export function beforeDisplayHandover(minutes) { return minutes < DISPLAY_HANDOVER_MINUTES; }
 export function activeErSlot(minutes) { return minutes >= 480 && minutes < 960 ? 'morning' : minutes >= 960 && minutes < 1380 ? 'evening' : 'night'; }
 export function activeRegularSlot(minutes) { return minutes >= 480 && minutes < 960 ? 'in' : 'out'; }
+/**
+ * Return the duty column to mute in LIVE weekday fullscreen mode.
+ * The 07:50 layout handover is independent of this 08:00/15:50 shading.
+ * null means keep existing colours (overnight, handover, holidays or manual dates).
+ */
+export function fullscreenMutedDutyKey(selectedDate,isAuto,isHoliday,now=bangkokParts()){
+ if(!isAuto||isHoliday||selectedDate!==now.date)return null;
+ if(now.minutes>=480 && now.minutes<950)return 'out';
+ if(now.minutes>=950)return 'in';
+ return null;
+}
 export function dailyColumns(date, isAuto, now=bangkokParts()) {
   const overnight = isAuto && beforeDisplayHandover(now.minutes);
   const oldDate = nextDate(date,-1);
