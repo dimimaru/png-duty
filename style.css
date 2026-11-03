@@ -427,3 +427,31 @@
  .fullscreen-mode .monitor-grid.weekday-monitor .staff-line{gap:1px 3px}
  .fullscreen-mode .monitor-grid.weekday-monitor .first-call{font-size:9px;padding:1px 2px}
 }
+
+/* Fullscreen consult handover: alternate colour/grey between left and right
+   without blinking names or changing assignment order. */
+@keyframes consult-handover-colored {
+ 0%,49.9% {background-color:var(--person,#e7edf4);filter:none;opacity:1}
+ 50%,100% {background-color:#e6e9ed;filter:grayscale(1);opacity:.59}
+}
+@keyframes consult-handover-muted {
+ 0%,49.9% {background-color:#e6e9ed;filter:grayscale(1);opacity:.59}
+ 50%,100% {background-color:var(--person,#e7edf4);filter:none;opacity:1}
+}
+.fullscreen-mode .duty-cell.handover-colored .assignment:not(.continuous-duty){
+ animation:consult-handover-colored 2.4s steps(1,end) infinite;
+}
+.fullscreen-mode .duty-cell.handover-muted .assignment:not(.continuous-duty){
+ animation:consult-handover-muted 2.4s steps(1,end) infinite;
+}
+.fullscreen-mode .duty-cell.handover-colored .empty-cell{opacity:1}
+.fullscreen-mode .duty-cell.handover-muted .empty-cell{opacity:.55}
+@media (prefers-reduced-motion:reduce){
+ .fullscreen-mode .duty-cell.handover-colored .assignment,
+ .fullscreen-mode .duty-cell.handover-muted .assignment{animation:none}
+ .fullscreen-mode .duty-cell.handover-muted .assignment:not(.continuous-duty){
+  background:#e6e9ed;
+  filter:grayscale(1);
+  opacity:.59;
+ }
+}
