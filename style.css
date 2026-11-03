@@ -358,3 +358,72 @@
 /* Keep the landscape fullscreen roster compact. */
 .fullscreen-mode .monitor-column .matrix-row.dept-row-white,
 .fullscreen-mode .monitor-column .matrix-row.dept-row-gray { padding: 2px 3px; }
+
+/* Live weekday fullscreen shading; protected continuous-duty doctors retain their colours. */
+.fullscreen-mode .duty-cell.fullscreen-muted .assignment:not(.continuous-duty){
+ background:#e6e9ed !important;
+ color:#88959f;
+ filter:grayscale(1);
+ opacity:.59;
+}
+.fullscreen-mode .duty-cell.fullscreen-muted .assignment:not(.continuous-duty) .first-call{
+ background:#e0e4e8;
+ color:#88959f;
+}
+.fullscreen-mode .duty-cell.fullscreen-muted .empty-cell{
+ filter:grayscale(1);
+ opacity:.58;
+}
+
+/* Restore 100%-viewport weekday monitor: the previous fixed row minimums
+   forced the last departments below the screen and required scrolling. */
+.fullscreen-mode #screen.monitor-layout.weekday-monitor-layout{
+ display:flex;
+ flex-direction:column;
+ min-height:0;
+ overflow:hidden;
+ scrollbar-gutter:auto;
+}
+.fullscreen-mode #screen.monitor-layout.weekday-monitor-layout>.monitor-grid{
+ flex:1 1 0;
+ height:auto;
+ min-height:0;
+ grid-template-rows:minmax(0,1fr);
+ align-items:stretch;
+}
+.fullscreen-mode .monitor-grid.weekday-monitor .monitor-column{
+ height:100%;
+ min-height:0;
+ grid-auto-rows:minmax(0,1fr);
+}
+.fullscreen-mode .monitor-grid.weekday-monitor .matrix-row,
+.fullscreen-mode .monitor-grid.weekday-monitor .monitor-pair{
+ min-height:0;
+ height:100%;
+ overflow:hidden;
+}
+.fullscreen-mode .monitor-grid.weekday-monitor .dept-grid,
+.fullscreen-mode .monitor-grid.weekday-monitor .duty-cell,
+.fullscreen-mode .monitor-grid.weekday-monitor .shared-cell,
+.fullscreen-mode .monitor-grid.weekday-monitor .er-split,
+.fullscreen-mode .monitor-grid.weekday-monitor .monitor-in-stack{
+ min-height:0;
+ overflow:hidden;
+}
+.fullscreen-mode .monitor-grid.weekday-monitor .assignment{
+ min-height:0;
+ overflow:hidden;
+}
+@media (orientation:landscape) and (max-height:640px){
+ .fullscreen-mode .monitor-grid.weekday-monitor .dept-tag{
+  font-size:clamp(9px,.9vw,12px);
+  line-height:1.05;
+  gap:0;
+  padding:1px 2px;
+ }
+ .fullscreen-mode .monitor-grid.weekday-monitor .dept-emoji{display:none}
+ .fullscreen-mode .monitor-grid.weekday-monitor .assignment{padding:1px 3px;gap:0}
+ .fullscreen-mode .monitor-grid.weekday-monitor .role{font-size:9px;line-height:1}
+ .fullscreen-mode .monitor-grid.weekday-monitor .staff-line{gap:1px 3px}
+ .fullscreen-mode .monitor-grid.weekday-monitor .first-call{font-size:9px;padding:1px 2px}
+}
