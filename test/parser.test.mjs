@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {excelDate,parseNames,parseAllDuty,parseOpdGp,columnIndex} from '../parser.js';
-import {dailyColumns,shiftState,nextDate,fullscreenMutedDutyKey,continuousDutyNames} from '../schedule.js';
+import {dailyColumns,shiftState,nextDate,fullscreenColumns,fullscreenDutyPhase,fullscreenMutedDutyKey,continuousDutyNames} from '../schedule.js';
 
 test('Excel serial date and Buddhist date',()=>{
   assert.equal(excelDate(46325),'2026-10-30');
@@ -61,23 +61,42 @@ test('daytime preview remains muted until 07:49 and switches at 07:50',()=>{
   assert.equal(manual.regular[0].preview,undefined);
 });
 
-test('weekday fullscreen mutes upcoming out-of-hours only 08:00 through 15:49',()=>{
+test('fullscreen weekday board uses correct dates and left/right order at every boundary',()=>{
  const date='2026-11-02';
- const at=m=>fullscreenMutedDutyKey(date,true,false,{date,minutes:m});
- assert.equal(at(469),null);
- assert.equal(at(470),null);
- assert.equal(at(479),null);
- assert.equal(at(480),'out');
- assert.equal(at(949),'out');
- assert.equal(at(950),'in');
- assert.equal(at(959),'in');
- assert.equal(at(1439),'in');
+ const cols=minutes=>fullscreenColumns(date,true,false,{date,minutes});
+ const first=cols(0);
+ assert.deepEqual(first.map(c=>[c.key,c.date]),[['out','2026-11-01'],['in',date]]);
+ assert.equal(cols(474)[1].preview,true);
+ assert.deepEqual(cols(475).map(c=>c.key),['out','in']);
+ assert.equal(cols(475)[1].preview,undefined); // animated, not permanently faded
+ assert.deepEqual(cols(479).map(c=>c.key),['out','in']);
+ assert.deepEqual(cols(480).map(c=>[c.key,c.date]),[['in',date],['out',date]]);
+ assert.deepEqual(cols(954).map(c=>c.key),['in','out']);
+ assert.deepEqual(cols(955).map(c=>c.key),['in','out']);
+ assert.deepEqual(cols(989).map(c=>c.key),['in','out']);
+ assert.deepEqual(cols(990).map(c=>[c.key,c.date]),[['in','2026-11-03'],['out',date]]);
+ assert.equal(cols(990)[0].preview,true);
+ assert.deepEqual(cols(1439).map(c=>[c.key,c.date]),[['in','2026-11-03'],['out',date]]);
 });
-test('holidays, manual dates and other days remain unshaded',()=>{
+test('fullscreen shading and handover windows match specified times',()=>{
+ const date='2026-11-02',at=minutes=>fullscreenDutyPhase(date,true,false,{date,minutes});
+ for(const [minute,key,transition] of [
+  [0,'in',null],[474,'in',null],[475,'in','handover'],[479,'in','handover'],
+  [480,'out',null],[954,'out',null],[955,'out','handover'],
+  [989,'out','handover'],[990,'in',null],[1439,'in',null]
+ ])assert.deepEqual(at(minute),{mutedKey:key,transition});
+ assert.equal(fullscreenMutedDutyKey(date,true,false,{date,minutes:954}),'out');
+ assert.equal(fullscreenMutedDutyKey(date,true,false,{date,minutes:990}),'in');
+});
+test('holidays, manual date selections and other dates never use fullscreen highlighting',()=>{
  const date='2026-11-02',now={date,minutes:600};
- assert.equal(fullscreenMutedDutyKey(date,true,true,now),null);
- assert.equal(fullscreenMutedDutyKey(date,false,false,now),null);
- assert.equal(fullscreenMutedDutyKey('2026-11-01',true,false,now),null);
+ for(const [selection,automatic,holiday] of [[date,true,true],[date,false,false],['2026-11-01',true,false]]){
+  assert.deepEqual(fullscreenDutyPhase(selection,automatic,holiday,now),{mutedKey:null,transition:null});
+ }
+ const manual=fullscreenColumns(date,false,false,{date,minutes:1320});
+ assert.deepEqual(manual.map(c=>[c.key,c.date]),[['in',date],['out',date]]);
+ const holiday=fullscreenColumns(date,true,true,{date,minutes:1320});
+ assert.deepEqual(holiday.map(c=>[c.key,c.date]),[['in',date],['out',date]]);
 });
 test('same doctor on morning and out-of-hours retains own color',()=>{
  const same=continuousDutyNames(['ศุภฤกษ์','กชนิภา'],['ศุภฤกษ์','โชคชัย']);
