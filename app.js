@@ -7,7 +7,7 @@ import {renderOrSchedule,orWeekStart} from './or-ui.js';
 import {fetchOpdHolidayOverrides} from './sheets.js';
 import {fetchGoogleSheet} from './sheets.js';
 import {DEPT_LABELS,DEPT_ORDER,INTERN_NAMES} from './parser.js';
-import {bangkokParts,nextDate,lastSyncLabel,dailyColumns,fullscreenMutedDutyKey,continuousDutyNames} from './schedule.js';
+import {bangkokParts,nextDate,lastSyncLabel,dailyColumns,fullscreenColumns,fullscreenDutyPhase,continuousDutyNames} from './schedule.js';
 import {loadSnapshot,saveSnapshot,getPreference,setPreference} from './storage.js';
 import {makeDemo} from './demo.js';
 import {DEFAULT_CONFIG} from './config.js';
@@ -130,7 +130,7 @@ function overnight(date,dept){
  const raw=first(staff?.names?.[0]);return {name:dept==='FORENSIC'?(raw==='อักษราภัค'?raw:'มนตรี'):raw||(dept==='NEURO'?'วชิระภูเก็ต':dept==='MAXILO'?'emer วชิระฯ':''),minor:trainee?.names?.[0]||''};
 }
 function dayAssignments(date,dept){return morning(date,dept).map(a=>card(a.name,a)).join('')||empty();}
-function dayColumns(){return dailyColumns(viewedDate,auto).regular;}
+function dayColumns(){return $('app').classList.contains('fullscreen-mode')?fullscreenColumns(viewedDate,auto,dutyHoliday(viewedDate,data)):dailyColumns(viewedDate,auto).regular;}
 function departmentLabel(dept){
  const labels={SURG:'Sx',NEURO:'NeuSx',MAXILO:'Max',FORENSIC:'ชันสูตร',TRANSPORT:'OPD\nนอกเวลา'};
  const icons={MED:'🩺',SURG:'🔪','OB-GYN':'🤰',PED:'🧸',ORTHO:'🦴',PSY:'💬',NEURO:'🧠',ENT:'👂',EYE:'👁️',RADIO:'🩻',URO:'🚻',ANES:'💉',MAXILO:'🦷',FORENSIC:'💀',ER:'🚑',TRANSPORT:'🏥'};
@@ -141,7 +141,7 @@ function departmentRow(dept,cols){
  if(dutyHoliday(viewedDate,data)){const a=overnight(viewedDate,dept);return `<div class="matrix-row" data-department="${dept}"><button class="dept-tag" data-dept="${dept}">${departmentLabel(dept)}</button><div class="dept-grid"><div class="shared-cell${['MED','PED','OB-GYN','PSY'].includes(dept)?' monitor-large-out':''}">${a.name?card(a.name,{minor:a.minor}):empty()}</div></div></div>`;}
  const ins=cols.find(c=>c.key==='in'),outs=cols.find(c=>c.key==='out'),am=morning(ins.date,dept),pm=overnight(outs.date,dept);
  const richMonitor=$('app').classList.contains('fullscreen-mode')&&['MED','PED','OB-GYN','PSY'].includes(dept);
- const match=!richMonitor&&ins.date===outs.date?am.findIndex(a=>a.name&&a.name===pm.name&&!a.phone):-1,remaining=am.filter((_,i)=>i!==match);
+ const match=!richMonitor&&dept!=='EYE'&&ins.date===outs.date?am.findIndex(a=>a.name&&a.name===pm.name&&!a.phone):-1,remaining=am.filter((_,i)=>i!==match);
  const monitor=$('app').classList.contains('fullscreen-mode'),stackedIn=monitor&&['MED','PED'].includes(dept);
  const inHtml=stackedIn?`<div class="monitor-in-stack${dept==='MED'?' monitor-med-grid':''}" style="--in-cols:${dept==='MED'?2:Math.max(1,Math.ceil(remaining.length/3))};--in-rows:${dept==='MED'?Math.max(1,Math.ceil(remaining.length/2)):Math.max(1,Math.min(3,remaining.length))}">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
  const shared=match>=0?`<div class="shared-cell${am[match].title?' with-shared-role':''}">${am[match].title?`<span class="shared-role" style="left:${cols[0].key==='in'?'0':'50%'}">${esc(am[match].title)}</span>`:''}${card(pm.name,{minor:pm.minor})}</div>`:'';
@@ -177,16 +177,17 @@ function erAssignment(raw,date,key,title=''){
  return '<div class="er-sync-cell conflict">'+html+'<details class="er-sync-details"><summary>เปรียบเทียบชื่อ</summary><div>ER-duty: '+esc(comparison.erNames.join(' / ')||'ว่าง')+'</div><div>Google Sheet: '+esc(comparison.sheetNames.join(' / ')||(comparison.sheetAvailable?'ว่าง':'ยังไม่มีข้อมูลวันที่นี้'))+'</div><small>ER รุ่น '+comparison.revision+' · Sheet '+esc(lastSyncLabel(comparison.sheetSyncedAt))+'</small></details></div>';
 }
 function erRow(cols){
- const day=erShiftNames(viewedDate,'morning').map(n=>erAssignment(n,viewedDate,'morning','ER เช้า')).join('')||empty();
+ const dayDate=cols.find(c=>c.key==='in')?.date||viewedDate;
+ const day=erShiftNames(dayDate,'morning').map(n=>erAssignment(n,dayDate,'morning','ER เช้า')).join('')||empty();
  const nightDate=cols.find(c=>c.key==='out')?.date||viewedDate;
  const shift=(key,title,date)=>erShiftNames(date,key).map(n=>erAssignment(n,date,key,title)).join('')||empty();
  const out=`<div class="er-split">${shift('evening','ER บ่าย',nightDate)}${shift('night','ER ดึก',nightDate)}</div>`;
- if(dutyHoliday(viewedDate,data))return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="holiday-er">${day}${shift('evening','ER บ่าย',viewedDate)}${shift('night','ER ดึก',viewedDate)}</div></div>`;
- return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="dept-grid">${cols.map(c=>`<div class="duty-cell${c.preview?' upcoming-in-shift':''}" data-duty-slot="${c.key}">${c.key==='in'?day:out}</div>`).join('')}</div></div>`;
+ if(dutyHoliday(viewedDate,data))return `<div class="matrix-row" data-department="ER"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="holiday-er">${day}${shift('evening','ER บ่าย',viewedDate)}${shift('night','ER ดึก',viewedDate)}</div></div>`;
+ return `<div class="matrix-row" data-department="ER"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="dept-grid">${cols.map(c=>`<div class="duty-cell${c.preview?' upcoming-in-shift':''}" data-duty-slot="${c.key}">${c.key==='in'?day:out}</div>`).join('')}</div></div>`;
 }
 function transportRow(cols){
  const cells=cols.map(c=>{const h=entries(c.date,'TRANSPORT',c.key).flatMap(e=>e.names).map(n=>card(first(n))).join('')||empty();return `<div class="duty-cell transport-${c.key==='in'?'morning':'evening'}${c.preview?' upcoming-in-shift':''}" data-duty-slot="${c.key}">${c.key==='out'?`<div class="er-split">${h}<div class="night-blank"></div></div>`:h}</div>`;}).join('');
- return `<div class="matrix-row"><button class="dept-tag" data-dept="TRANSPORT">${departmentLabel('TRANSPORT')}</button><div class="dept-grid transport-grid">${cells}</div></div>`;
+ return `<div class="matrix-row" data-department="TRANSPORT"><button class="dept-tag" data-dept="TRANSPORT">${departmentLabel('TRANSPORT')}</button><div class="dept-grid transport-grid">${cells}</div></div>`;
 }
 function renderDuty(){
  const cols=dayColumns(),order=DEPT_ORDER.filter(d=>!['ER','TRANSPORT'].includes(d)).concat(['ER','TRANSPORT']);
@@ -217,8 +218,8 @@ function renderDuty(){
   const consumed=new Set(),units=[];
   for(const d of visible){
    if(consumed.has(d))continue;
-   const pair=d==='SURG'?['SURG','ORTHO']:d==='ENT'||d==='EYE'?['EYE','ENT']:null;
-   if(pair&&pair.every(p=>visible.includes(p)&&sameStaff(p))){units.push({depts:pair,small:true});pair.forEach(p=>consumed.add(p));}
+   const pair=d==='SURG'?['SURG','ORTHO']:d==='ENT'&&sameStaff('URO')?['ENT','URO']:null;
+   if(pair&&pair.every(p=>visible.includes(p))&&(d==='ENT'?sameStaff('URO'):pair.every(p=>sameStaff(p)))){units.push({depts:pair,small:true});pair.forEach(p=>consumed.add(p));}
    else {units.push({depts:[d],small:d==='URO'&&sameStaff(d)});consumed.add(d);}
   }
   // Allocate the whole screen by relative workload, not fixed minimum pixels.
@@ -361,18 +362,25 @@ function fitMonitorNames(){
 function applyFullscreenDutyShading(){
  const screen=$('screen');
  if(!$('app').classList.contains('fullscreen-mode')||tab!=='duty')return;
- const muted=fullscreenMutedDutyKey(viewedDate,auto,dutyHoliday(viewedDate,data));
- if(!muted)return;
- const cells=[...screen.querySelectorAll('.duty-cell[data-duty-slot]')];
- const namesFor=key=>cells.filter(cell=>cell.dataset.dutySlot===key)
-  .flatMap(cell=>[...cell.querySelectorAll('.assignment[data-duty-person]')]
-   .map(assignment=>assignment.dataset.dutyPerson).filter(Boolean));
- const continuous=continuousDutyNames(namesFor('in'),namesFor('out'));
- for(const cell of cells){
-  if(cell.dataset.dutySlot!==muted)continue;
-  cell.classList.add('fullscreen-muted');
-  for(const assignment of cell.querySelectorAll('.assignment[data-duty-person]')){
+ const phase=fullscreenDutyPhase(viewedDate,auto,dutyHoliday(viewedDate,data));
+ if(!phase.mutedKey)return;
+ const cols=dayColumns();
+ const sameDay=cols.find(c=>c.key==='in')?.date===cols.find(c=>c.key==='out')?.date;
+ // Protect a continuous doctor only when both slots belong to the same date
+ // and department. MED, OB-GYN, PED and PSY always follow column fading.
+ if(sameDay)for(const row of screen.querySelectorAll('.matrix-row[data-department]')){
+  if(['MED','OB-GYN','PED','PSY'].includes(row.dataset.department))continue;
+  const names=key=>[...row.querySelectorAll('.duty-cell[data-duty-slot="'+key+'"] .assignment[data-duty-person]')]
+   .map(a=>a.dataset.dutyPerson).filter(Boolean);
+  const continuous=continuousDutyNames(names('in'),names('out'));
+  for(const assignment of row.querySelectorAll('.assignment[data-duty-person]'))
    if(continuous.has(assignment.dataset.dutyPerson))assignment.classList.add('continuous-duty');
+ }
+ for(const cell of screen.querySelectorAll('.duty-cell[data-duty-slot]')){
+  if(phase.transition){
+   cell.classList.add(cell.dataset.dutySlot===phase.mutedKey?'handover-muted':'handover-colored');
+  }else if(cell.dataset.dutySlot===phase.mutedKey){
+   cell.classList.add('fullscreen-muted');
   }
  }
 }
