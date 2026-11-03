@@ -10,32 +10,44 @@ export function nextDate(iso, delta) {
   return d.toISOString().slice(0,10);
 }
 export function isOvernight(minutes) { return minutes < 480; }
-// The duty-board display changes at 07:50; actual shift start remains 08:00.
+// Live fullscreen display transitions are separate from true 08:00 and 16:00 shift times.
 export const DISPLAY_HANDOVER_MINUTES = 7 * 60 + 50;
 export function beforeDisplayHandover(minutes) { return minutes < DISPLAY_HANDOVER_MINUTES; }
 export function activeErSlot(minutes) { return minutes >= 480 && minutes < 960 ? 'morning' : minutes >= 960 && minutes < 1380 ? 'evening' : 'night'; }
 export function activeRegularSlot(minutes) { return minutes >= 480 && minutes < 960 ? 'in' : 'out'; }
-/**
- * Return the duty column to mute in LIVE weekday fullscreen mode.
- * The 07:50 layout handover is independent of this 08:00/15:50 shading.
- * null means keep existing colours (overnight, handover, holidays or manual dates).
- */
-// Any doctor assigned to both morning and out-of-hours stays coloured in both.
 export function continuousDutyNames(inNames,outNames){
  const morning=new Set(inNames.filter(Boolean));
  return new Set(outNames.filter(name=>morning.has(name)));
 }
+// Only automatic, current-day, non-holiday fullscreen views use the new display schedule.
+// This is a VISUAL transition; it must not change the underlying duty start/end times.
+export function fullscreenDutyPhase(selectedDate,isAuto,isHoliday,now=bangkokParts()){
+ if(!isAuto||isHoliday||selectedDate!==now.date)return {mutedKey:null,transition:null};
+ const m=now.minutes;
+ if(m<475)return {mutedKey:'in',transition:null};               // 00:00–07:54
+ if(m<480)return {mutedKey:'in',transition:'handover'};         // 07:55–07:59
+ if(m<955)return {mutedKey:'out',transition:null};             // 08:00–15:54
+ if(m<990)return {mutedKey:'out',transition:'handover'};        // 15:55–16:29
+ return {mutedKey:'in',transition:null};                        // 16:30–23:59
+}
 export function fullscreenMutedDutyKey(selectedDate,isAuto,isHoliday,now=bangkokParts()){
- if(!isAuto||isHoliday||selectedDate!==now.date)return null;
- if(now.minutes>=480 && now.minutes<950)return 'out';
- if(now.minutes>=950)return 'in';
- return null;
+ return fullscreenDutyPhase(selectedDate,isAuto,isHoliday,now).mutedKey;
+}
+// Always return left-to-right display order, with dates belonging to each shift.
+// In evening fullscreen, next day's IN is left; today's OUT remains on the right.
+export function fullscreenColumns(date,isAuto,isHoliday,now=bangkokParts()){
+ if(!isAuto||isHoliday||date!==now.date)return dailyColumns(date,isAuto,now).regular;
+ const inColumn=(d,preview=false)=>({key:'in',date:d,label:'ในเวลา',time:'08–16',...(preview?{preview:true}:{})});
+ const outColumn=d=>({key:'out',date:d,label:'นอกเวลา',time:'16–08'});
+ if(now.minutes<480)return [outColumn(nextDate(date,-1)),inColumn(date,now.minutes<475)];
+ if(now.minutes<990)return [inColumn(date),outColumn(date)];
+ return [inColumn(nextDate(date,1),true),outColumn(date)];
 }
 export function dailyColumns(date, isAuto, now=bangkokParts()) {
-  const overnight = isAuto && beforeDisplayHandover(now.minutes);
-  const oldDate = nextDate(date,-1);
-  if(overnight) return {er:[{key:'night',date:oldDate,label:'ดึก',time:'23–08'},{key:'morning',date,label:'เช้า',time:'08–16'},{key:'evening',date,label:'บ่าย',time:'16–23'}], regular:[{key:'out',date:oldDate,label:'นอกเวลา',time:'16–08'},{key:'in',date,label:'ในเวลา',time:'08–16',preview:true}]};
-  return {er:[{key:'morning',date,label:'เช้า',time:'08–16'},{key:'evening',date,label:'บ่าย',time:'16–23'},{key:'night',date,label:'ดึก',time:'23–08'}],regular:[{key:'in',date,label:'ในเวลา',time:'08–16'},{key:'out',date,label:'นอกเวลา',time:'16–08'}]};
+ const overnight = isAuto && beforeDisplayHandover(now.minutes);
+ const oldDate = nextDate(date,-1);
+ if(overnight) return {er:[{key:'night',date:oldDate,label:'ดึก',time:'23–08'},{key:'morning',date,label:'เช้า',time:'08–16'},{key:'evening',date,label:'บ่าย',time:'16–23'}], regular:[{key:'out',date:oldDate,label:'นอกเวลา',time:'16–08'},{key:'in',date,label:'ในเวลา',time:'08–16',preview:true}]};
+ return {er:[{key:'morning',date,label:'เช้า',time:'08–16'},{key:'evening',date,label:'บ่าย',time:'16–23'},{key:'night',date,label:'ดึก',time:'23–08'}],regular:[{key:'in',date,label:'ในเวลา',time:'08–16'},{key:'out',date,label:'นอกเวลา',time:'16–08'}]};
 }
 export function shiftState(column, selectedDate, isAuto, now=bangkokParts()) {
   if(!isAuto || selectedDate !== now.date) return 'neutral';
