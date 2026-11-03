@@ -7,7 +7,7 @@ import {renderOrSchedule,orWeekStart} from './or-ui.js';
 import {fetchOpdHolidayOverrides} from './sheets.js';
 import {fetchGoogleSheet} from './sheets.js';
 import {DEPT_LABELS,DEPT_ORDER,INTERN_NAMES} from './parser.js';
-import {bangkokParts,nextDate,lastSyncLabel,dailyColumns} from './schedule.js';
+import {bangkokParts,nextDate,lastSyncLabel,dailyColumns,fullscreenMutedDutyKey,continuousDutyNames} from './schedule.js';
 import {loadSnapshot,saveSnapshot,getPreference,setPreference} from './storage.js';
 import {makeDemo} from './demo.js';
 import {DEFAULT_CONFIG} from './config.js';
@@ -107,7 +107,7 @@ function card(name,{title='',minor='',intern=false,backup=false,phone=false,comp
  if(!name)return empty();const main=first(name),second=backup?parts(name).slice(1).join(' / '):'';
  const grey=intern||(interns.has(main)&&!(tab==='opd'||(tab==='month'&&monthDept==='GP')));
  const color=phone?'#edf1f5':grey?'#e9edf1':colors.get(main)||'#e7edf4';
- return `<div class="assignment${grey?' intern':''}" style="--person:${color}">${title?`<span class="role">${esc(title)}</span>`:''}<div class="staff-line">${personLink(main)}${second?`<small class="backup">/ ${parts(second).map(n=>personLink(n,'backup')).join(' / ')}</small>`:''}${minor?`<span class="first-call">1st call ${personLink(first(minor),'intern-name')}</span>`:''}${companions.length?`<span class="first-call er-companion">${companions.map(n=>personLink(n,'intern-name')).join(' / ')}</span>`:''}</div></div>`;
+ return `<div class="assignment${grey?' intern':''}" data-duty-person="${esc(canonicalName(main))}" style="--person:${color}">${title?`<span class="role">${esc(title)}</span>`:''}<div class="staff-line">${personLink(main)}${second?`<small class="backup">/ ${parts(second).map(n=>personLink(n,'backup')).join(' / ')}</small>`:''}${minor?`<span class="first-call">1st call ${personLink(first(minor),'intern-name')}</span>`:''}${companions.length?`<span class="first-call er-companion">${companions.map(n=>personLink(n,'intern-name')).join(' / ')}</span>`:''}</div></div>`;
 }
 const roles={Stroke:'Stroke fast','ER / Refer':'ICU-ER-Refer','Consult ต่างแผนก':'ต่างแผนก','OPD / Ward':'OPD',Gyne:'GYN','ผู้ใหญ่ · Consult':'ผู้ใหญ่ · OPD/ต่างแผนก','ผู้ใหญ่ · ER / รพช.':'ผู้ใหญ่ · ER/Refer','เด็ก / วัยรุ่น':'จิตเวชเด็ก',OB:'OB'};
 function roleTitle(e){const r=e.role||'';if(roles[r])return roles[r];if(/NICU/i.test(r))return 'Refer NICU';if(/เด็กโต|PICU/.test(r))return 'เด็กโต / PICU';if(/^OPD1/.test(r))return 'OPD';if(/OPD2/.test(r))return 'ICU / ต่างแผนก';if(/พิเศษชั้น/.test(r))return 'พิเศษชั้น 5–6';if(/newborn|รับเด็ก/i.test(r))return 'NB / หลังคลอด';return '';}
@@ -145,7 +145,7 @@ function departmentRow(dept,cols){
  const monitor=$('app').classList.contains('fullscreen-mode'),stackedIn=monitor&&['MED','PED'].includes(dept);
  const inHtml=stackedIn?`<div class="monitor-in-stack${dept==='MED'?' monitor-med-grid':''}" style="--in-cols:${dept==='MED'?2:Math.max(1,Math.ceil(remaining.length/3))};--in-rows:${dept==='MED'?Math.max(1,Math.ceil(remaining.length/2)):Math.max(1,Math.min(3,remaining.length))}">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
  const shared=match>=0?`<div class="shared-cell${am[match].title?' with-shared-role':''}">${am[match].title?`<span class="shared-role" style="left:${cols[0].key==='in'?'0':'50%'}">${esc(am[match].title)}</span>`:''}${card(pm.name,{minor:pm.minor})}</div>`:'';
- const rest=match>=0?(remaining.length?`<div class="duty-cell" style="grid-column:${cols[0].key==='in'?1:2}">${inHtml}</div>`:''):cols.map(c=>`<div class="duty-cell${richMonitor&&c.key==='out'?' monitor-large-out':''}${c.preview?' upcoming-in-shift':''}">${c.key==='in'?inHtml:outHtml}</div>`).join('');
+ const rest=match>=0?(remaining.length?`<div class="duty-cell" style="grid-column:${cols[0].key==='in'?1:2}">${inHtml}</div>`:''):cols.map(c=>`<div class="duty-cell${richMonitor&&c.key==='out'?' monitor-large-out':''}${c.preview?' upcoming-in-shift':''}" data-duty-slot="${c.key}">${c.key==='in'?inHtml:outHtml}</div>`).join('');
  return `<div class="matrix-row${am.length===1&&match>=0?' monitor-compact':''}" data-department="${dept}"><button class="dept-tag" data-dept="${dept}">${departmentLabel(dept)}</button><div class="dept-grid">${shared}${rest}</div></div>`;
 }
 // June/July ER entries retain "EP / paired intern" from the source sheet.
@@ -182,10 +182,10 @@ function erRow(cols){
  const shift=(key,title,date)=>erShiftNames(date,key).map(n=>erAssignment(n,date,key,title)).join('')||empty();
  const out=`<div class="er-split">${shift('evening','ER บ่าย',nightDate)}${shift('night','ER ดึก',nightDate)}</div>`;
  if(dutyHoliday(viewedDate,data))return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="holiday-er">${day}${shift('evening','ER บ่าย',viewedDate)}${shift('night','ER ดึก',viewedDate)}</div></div>`;
- return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="dept-grid">${cols.map(c=>`<div class="duty-cell${c.preview?' upcoming-in-shift':''}">${c.key==='in'?day:out}</div>`).join('')}</div></div>`;
+ return `<div class="matrix-row"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="dept-grid">${cols.map(c=>`<div class="duty-cell${c.preview?' upcoming-in-shift':''}" data-duty-slot="${c.key}">${c.key==='in'?day:out}</div>`).join('')}</div></div>`;
 }
 function transportRow(cols){
- const cells=cols.map(c=>{const h=entries(c.date,'TRANSPORT',c.key).flatMap(e=>e.names).map(n=>card(first(n))).join('')||empty();return `<div class="duty-cell transport-${c.key==='in'?'morning':'evening'}${c.preview?' upcoming-in-shift':''}">${c.key==='out'?`<div class="er-split">${h}<div class="night-blank"></div></div>`:h}</div>`;}).join('');
+ const cells=cols.map(c=>{const h=entries(c.date,'TRANSPORT',c.key).flatMap(e=>e.names).map(n=>card(first(n))).join('')||empty();return `<div class="duty-cell transport-${c.key==='in'?'morning':'evening'}${c.preview?' upcoming-in-shift':''}" data-duty-slot="${c.key}">${c.key==='out'?`<div class="er-split">${h}<div class="night-blank"></div></div>`:h}</div>`;}).join('');
  return `<div class="matrix-row"><button class="dept-tag" data-dept="TRANSPORT">${departmentLabel('TRANSPORT')}</button><div class="dept-grid transport-grid">${cells}</div></div>`;
 }
 function renderDuty(){
@@ -221,21 +221,14 @@ function renderDuty(){
    if(pair&&pair.every(p=>visible.includes(p)&&sameStaff(p))){units.push({depts:pair,small:true});pair.forEach(p=>consumed.add(p));}
    else {units.push({depts:[d],small:d==='URO'&&sameStaff(d)});consumed.add(d);}
   }
+  // Allocate the whole screen by relative workload, not fixed minimum pixels.
   const unitWeight=u=>Math.max(...u.depts.map(weight));
-   // Keep each duty card legible even on short landscape displays.
-   const unitMinHeight=u=>Math.max(...u.depts.map(d=>{
-    if(d==='ER')return Math.max(70,erShiftNames(viewedDate,'morning').length*60);
-    if(d==='TRANSPORT')return 64;
-    const count=morning(ins.date,d).length;
-    const rows=d==='MED'?Math.max(1,Math.ceil(count/2)):d==='PED'?Math.max(1,Math.min(3,count)):Math.max(1,count);
-    return Math.max(u.small?80:64,rows*60+(rows-1)*4);
-   }));
   const total=units.reduce((n,u)=>n+unitWeight(u),0);
   let split=1,best=Infinity,sum=0;
   for(let i=1;i<units.length;i++){sum+=unitWeight(units[i-1]);const difference=Math.abs(total-2*sum);if(difference<best){best=difference;split=i;}}
   const groups=units.length>1?[units.slice(0,split),units.slice(split)]:[units];
   const unitHtml=u=>u.small?`<div class="monitor-pair">${rows(u.depts)}</div>`:rows(u.depts);
-  return `<div class="monitor-grid${dutyHoliday(viewedDate,data)?'':' weekday-monitor'}">${groups.map(group=>`<section class="monitor-column" style="grid-template-rows:${group.map(u=>dutyHoliday(viewedDate,data)?`minmax(0,${unitWeight(u)}fr)`:`minmax(${unitMinHeight(u)}px,${unitWeight(u)}fr)`).join(' ')}">${group.map(unitHtml).join('')}</section>`).join('')}</div>`;
+  return `<div class="monitor-grid${dutyHoliday(viewedDate,data)?'':' weekday-monitor'}">${groups.map(group=>`<section class="monitor-column" style="grid-template-rows:${group.map(u=>`minmax(0,${unitWeight(u)}fr)`).join(' ')}">${group.map(unitHtml).join('')}</section>`).join('')}</div>`;
  }
  return heading+rows(visible);
 }
@@ -365,6 +358,24 @@ function fitMonitorNames(){
   while(size>11&&overflows()){size-=.5;apply();}
  }
 }
+function applyFullscreenDutyShading(){
+ const screen=$('screen');
+ if(!$('app').classList.contains('fullscreen-mode')||tab!=='duty')return;
+ const muted=fullscreenMutedDutyKey(viewedDate,auto,dutyHoliday(viewedDate,data));
+ if(!muted)return;
+ const cells=[...screen.querySelectorAll('.duty-cell[data-duty-slot]')];
+ const namesFor=key=>cells.filter(cell=>cell.dataset.dutySlot===key)
+  .flatMap(cell=>[...cell.querySelectorAll('.assignment[data-duty-person]')]
+   .map(assignment=>assignment.dataset.dutyPerson).filter(Boolean));
+ const continuous=continuousDutyNames(namesFor('in'),namesFor('out'));
+ for(const cell of cells){
+  if(cell.dataset.dutySlot!==muted)continue;
+  cell.classList.add('fullscreen-muted');
+  for(const assignment of cell.querySelectorAll('.assignment[data-duty-person]')){
+   if(continuous.has(assignment.dataset.dutyPerson))assignment.classList.add('continuous-duty');
+  }
+ }
+}
 function render(){
  if(auto)viewedDate=bangkokParts().date;
  const renderKey=[tab,viewedDate,selectedMonth,$('app').classList.contains('fullscreen-mode')].join('|');
@@ -378,6 +389,7 @@ function render(){
  $('screen').classList.toggle('monitor-layout',$('app').classList.contains('fullscreen-mode')&&tab==='duty');
  $('screen').classList.toggle('weekday-monitor-layout',$('app').classList.contains('fullscreen-mode')&&tab==='duty'&&!dutyHoliday(viewedDate,data));
  $('screen').innerHTML=erSyncStatus()+(monthly?renderMonth():tab==='opd'?renderOpd():renderDuty());
+ applyFullscreenDutyShading();
  $('screen').scrollTop=keepScroll;
  lastRenderKey=renderKey;
  $('demo-banner').hidden=!data.demo;$('sync-time').textContent=lastSyncLabel(data.syncedAt);$('refresh-btn').disabled=!(hasConnection()||ER_SYNC_CONFIG.feedUrl)||syncing;renderFilter();scheduleMonitorFit();
