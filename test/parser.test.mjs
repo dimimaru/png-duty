@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {excelDate,parseNames,parseAllDuty,parseOpdGp,columnIndex} from '../parser.js';
-import {dailyColumns,shiftState,nextDate} from '../schedule.js';
+import {dailyColumns,shiftState,nextDate,fullscreenMutedDutyKey,continuousDutyNames} from '../schedule.js';
 
 test('Excel serial date and Buddhist date',()=>{
   assert.equal(excelDate(46325),'2026-10-30');
@@ -59,4 +59,28 @@ test('daytime preview remains muted until 07:49 and switches at 07:50',()=>{
   const manual=dailyColumns(date,false,{date,minutes:30});
   assert.deepEqual(manual.regular.map(c=>c.key),['in','out']);
   assert.equal(manual.regular[0].preview,undefined);
+});
+
+test('weekday fullscreen mutes upcoming out-of-hours only 08:00 through 15:49',()=>{
+ const date='2026-11-02';
+ const at=m=>fullscreenMutedDutyKey(date,true,false,{date,minutes:m});
+ assert.equal(at(469),null);
+ assert.equal(at(470),null);
+ assert.equal(at(479),null);
+ assert.equal(at(480),'out');
+ assert.equal(at(949),'out');
+ assert.equal(at(950),'in');
+ assert.equal(at(959),'in');
+ assert.equal(at(1439),'in');
+});
+test('holidays, manual dates and other days remain unshaded',()=>{
+ const date='2026-11-02',now={date,minutes:600};
+ assert.equal(fullscreenMutedDutyKey(date,true,true,now),null);
+ assert.equal(fullscreenMutedDutyKey(date,false,false,now),null);
+ assert.equal(fullscreenMutedDutyKey('2026-11-01',true,false,now),null);
+});
+test('same doctor on morning and out-of-hours retains own color',()=>{
+ const same=continuousDutyNames(['ศุภฤกษ์','กชนิภา'],['ศุภฤกษ์','โชคชัย']);
+ assert.deepEqual([...same],['ศุภฤกษ์']);
+ assert.equal(same.has('โชคชัย'),false);
 });
