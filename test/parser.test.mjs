@@ -74,9 +74,9 @@ test('fullscreen weekday board uses correct dates and left/right order at every 
  assert.deepEqual(cols(954).map(c=>c.key),['in','out']);
  assert.deepEqual(cols(955).map(c=>c.key),['in','out']);
  assert.deepEqual(cols(989).map(c=>c.key),['in','out']);
- assert.deepEqual(cols(990).map(c=>[c.key,c.date]),[['in','2026-11-03'],['out',date]]);
- assert.equal(cols(990)[0].preview,true);
- assert.deepEqual(cols(1439).map(c=>[c.key,c.date]),[['in','2026-11-03'],['out',date]]);
+ assert.deepEqual(cols(990).map(c=>[c.key,c.date]),[['in',date],['out',date]]);
+ assert.equal(cols(990)[0].preview,undefined); // elapsed same-day morning, not tomorrow preview
+ assert.deepEqual(cols(1439).map(c=>[c.key,c.date]),[['in',date],['out',date]]);
 });
 test('fullscreen shading and handover windows match specified times',()=>{
  const date='2026-11-02',at=minutes=>fullscreenDutyPhase(date,true,false,{date,minutes});
@@ -124,5 +124,16 @@ test('regression: 10 Nov 2026 ER and surgery morning use the first on-duty physi
  assert.deepEqual(get('2026-11-11','ER','morning'),['กฤษฎา']);
  assert.deepEqual(get('2026-11-11','SURG','in'),['เบญญา']);
  const cols=fullscreenColumns('2026-11-10',true,false,{date:'2026-11-10',minutes:1278});
- assert.deepEqual(cols.map(c=>[c.key,c.date]),[['in','2026-11-11'],['out','2026-11-10']]);
+ assert.deepEqual(cols.map(c=>[c.key,c.date]),[['in','2026-11-10'],['out','2026-11-10']]);
+});
+
+test('regression: fullscreen evening 10 Nov always shows original morning and out-of-hours of 10 Nov',()=>{
+ const today='2026-11-10';
+ for(const minute of [990,1100,1278,1439]){
+  const columns=fullscreenColumns(today,true,false,{date:today,minutes:minute});
+  assert.deepEqual(columns.map(c=>[c.key,c.date,c.preview??false]),[['in',today,false],['out',today,false]]);
+ }
+ // Midnight is the ONLY boundary when left OUT belongs to yesterday.
+ const midnight=fullscreenColumns('2026-11-11',true,false,{date:'2026-11-11',minutes:0});
+ assert.deepEqual(midnight.map(c=>[c.key,c.date]),[['out',today],['in','2026-11-11']]);
 });
