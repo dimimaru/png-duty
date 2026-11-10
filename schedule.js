@@ -34,14 +34,14 @@ export function fullscreenMutedDutyKey(selectedDate,isAuto,isHoliday,now=bangkok
  return fullscreenDutyPhase(selectedDate,isAuto,isHoliday,now).mutedKey;
 }
 // Always return left-to-right display order, with dates belonging to each shift.
-// In evening fullscreen, next day's IN is left; today's OUT remains on the right.
+// In evening fullscreen, the elapsed IN slot and active OUT slot BOTH belong to today.
 export function fullscreenColumns(date,isAuto,isHoliday,now=bangkokParts()){
  if(!isAuto||isHoliday||date!==now.date)return dailyColumns(date,isAuto,now).regular;
  const inColumn=(d,preview=false)=>({key:'in',date:d,label:'ในเวลา',time:'08–16',...(preview?{preview:true}:{})});
  const outColumn=d=>({key:'out',date:d,label:'นอกเวลา',time:'16–08'});
  if(now.minutes<480)return [outColumn(nextDate(date,-1)),inColumn(date,now.minutes<475)];
  if(now.minutes<990)return [inColumn(date),outColumn(date)];
- return [inColumn(nextDate(date,1),true),outColumn(date)];
+ return [inColumn(date),outColumn(date)];
 }
 export function dailyColumns(date, isAuto, now=bangkokParts()) {
  const overnight = isAuto && beforeDisplayHandover(now.minutes);
