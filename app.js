@@ -384,6 +384,18 @@ function applyFullscreenDutyShading(){
   }
  }
 }
+function updateFullscreenDutyPeriodLabel(){
+ const label=$('duty-period-label');
+ if(!label)return;
+ const show=$('app').classList.contains('fullscreen-mode')&&tab==='duty'&&!dutyHoliday(viewedDate,data);
+ label.hidden=!show;
+ if(!show){label.textContent='';return;}
+ // Display the actual dates bound to each visible duty slot, not just viewedDate.
+ // At 16:30–23:59, the IN slot belongs to tomorrow; OUT belongs to today.
+ const shortDate=date=>new Intl.DateTimeFormat('th-TH',{timeZone:'UTC',day:'numeric',month:'short'}).format(new Date(date+'T12:00:00Z'));
+ label.textContent=dayColumns().map(c=>(c.key==='in'?'ในเวลา ':'นอกเวลา ')+shortDate(c.date)).join('  ·  ');
+ label.title='วันที่ของแต่ละช่วงเวรที่กำลังแสดงจริง';
+}
 function render(){
  if(auto)viewedDate=bangkokParts().date;
  const renderKey=[tab,viewedDate,selectedMonth,$('app').classList.contains('fullscreen-mode')].join('|');
@@ -394,6 +406,7 @@ function render(){
  $('date-nav').className='nav-control weekday-'+new Date(viewedDate+'T12:00:00Z').getUTCDay();
  $('view-date').value=viewedDate;$('month-input').value=selectedMonth;$('month-label').textContent=new Intl.DateTimeFormat('en-GB',{month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(selectedMonth+'-01T12:00:00Z'));
  $('today-btn').textContent=monthly?'เดือนนี้':'วันนี้';$('filter-btn').textContent=tab==='opd'?'กรอง OPD':'กรองแผนก';
+ updateFullscreenDutyPeriodLabel();
  $('screen').classList.toggle('monitor-layout',$('app').classList.contains('fullscreen-mode')&&tab==='duty');
  $('screen').classList.toggle('weekday-monitor-layout',$('app').classList.contains('fullscreen-mode')&&tab==='duty'&&!dutyHoliday(viewedDate,data));
  $('screen').innerHTML=erSyncStatus()+(monthly?renderMonth():tab==='opd'?renderOpd():renderDuty());
