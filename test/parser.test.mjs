@@ -103,3 +103,26 @@ test('same doctor on morning and out-of-hours retains own color',()=>{
  assert.deepEqual([...same],['ศุภฤกษ์']);
  assert.equal(same.has('โชคชัย'),false);
 });
+
+test('regression: 10 Nov 2026 ER and surgery morning use the first on-duty physician, not second or evening',()=>{
+ const rows=Array.from({length:6},()=>[]);
+ const firstDay=rows[4],nextDay=rows[5];
+ firstDay[0]=46336; // 2026-11-10
+ firstDay[columnIndex('C')]='โชษิตา'; // ER morning
+ firstDay[columnIndex('E')]='กฤษฎา'; // ER evening, NOT morning
+ firstDay[columnIndex('K')]='ศุภฤกษ์'; // Sx ER consult, primary
+ firstDay[columnIndex('L')]='เบญญา'; // Sx IPD consult, secondary
+ nextDay[0]=46337; // 2026-11-11
+ nextDay[columnIndex('C')]='กฤษฎา';
+ nextDay[columnIndex('K')]='เบญญา';
+ nextDay[columnIndex('L')]='ธารางกูร';
+ const {entries}=parseAllDuty(rows);
+ const get=(date,dept,key)=>entries.filter(e=>e.date===date&&e.dept===dept&&e.key===key).flatMap(e=>e.names);
+ assert.deepEqual(get('2026-11-10','ER','morning'),['โชษิตา']);
+ assert.deepEqual(get('2026-11-10','ER','evening'),['กฤษฎา']);
+ assert.deepEqual(get('2026-11-10','SURG','in'),['ศุภฤกษ์']);
+ assert.deepEqual(get('2026-11-11','ER','morning'),['กฤษฎา']);
+ assert.deepEqual(get('2026-11-11','SURG','in'),['เบญญา']);
+ const cols=fullscreenColumns('2026-11-10',true,false,{date:'2026-11-10',minutes:1278});
+ assert.deepEqual(cols.map(c=>[c.key,c.date]),[['in','2026-11-11'],['out','2026-11-10']]);
+});
