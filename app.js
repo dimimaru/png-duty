@@ -391,7 +391,7 @@ function updateFullscreenDutyPeriodLabel(){
  label.hidden=!show;
  if(!show){label.textContent='';return;}
  // Display the actual dates bound to each visible duty slot, not just viewedDate.
- // At 16:30–23:59, the IN slot belongs to tomorrow; OUT belongs to today.
+ // At 16:30–23:59, IN shows elapsed duty from today and OUT shows today's active duty.
  const shortDate=date=>new Intl.DateTimeFormat('th-TH',{timeZone:'UTC',day:'numeric',month:'short'}).format(new Date(date+'T12:00:00Z'));
  label.textContent=dayColumns().map(c=>(c.key==='in'?'ในเวลา ':'นอกเวลา ')+shortDate(c.date)).join('  ·  ');
  label.title='วันที่ของแต่ละช่วงเวรที่กำลังแสดงจริง';
