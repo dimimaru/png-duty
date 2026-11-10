@@ -1,4 +1,4 @@
-const CACHE = 'png-duty-shell-v21-fullscreen-five-phases-20261103';
+const CACHE = 'png-duty-shell-v22-explicit-duty-dates-20261110';
 const SHELL = ['./', './index.html', './style.css', './app.js', './parser.js', './schedule.js', './sheets.js', './storage.js', './demo.js', './config.js', './opd.js', './or.js', './or-ui.js', './names.js', './er-sync.js', './er-sync-config.js', './manifest.webmanifest','./assets/icon-192.png','./assets/icon-512.png','./assets/icon-180.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
