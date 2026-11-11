@@ -8,6 +8,7 @@ import {fetchOpdHolidayOverrides} from './sheets.js';
 import {fetchGoogleSheet} from './sheets.js';
 import {DEPT_LABELS,DEPT_ORDER,INTERN_NAMES} from './parser.js';
 import {bangkokParts,nextDate,lastSyncLabel,dailyColumns,fullscreenColumns,fullscreenDutyPhase,continuousDutyNames} from './schedule.js';
+import {BIRTHDAY_IMAGE_PATH,birthdaySlideActive} from './birthday.js';
 import {loadSnapshot,saveSnapshot,getPreference,setPreference} from './storage.js';
 import {makeDemo} from './demo.js';
 import {DEFAULT_CONFIG} from './config.js';
@@ -396,6 +397,24 @@ function updateFullscreenDutyPeriodLabel(){
  label.textContent=dayColumns().map(c=>(c.key==='in'?'ในเวลา ':'นอกเวลา ')+shortDate(c.date)).join('  ·  ');
  label.title='วันที่ของแต่ละช่วงเวรที่กำลังแสดงจริง';
 }
+// Birthday photo covers only the LIVE consult fullscreen at the scheduled Bangkok time.
+// The roster continues rendering and syncing behind it, so it is immediately available again.
+function updateBirthdayOverlay(){
+ const overlay=$('birthday-overlay'),photo=$('birthday-image');
+ if(!overlay||!photo)return;
+ const {date,minutes}=bangkokParts();
+ const due=auto&&tab==='duty'&&$('app').classList.contains('fullscreen-mode')&&birthdaySlideActive(date,minutes);
+ if(!due){overlay.hidden=true;overlay.setAttribute('aria-hidden','true');return;}
+ if(photo.dataset.loadFailed==='true')return;
+ if(!photo.getAttribute('src')){
+  photo.onload=updateBirthdayOverlay;
+  photo.onerror=()=>{photo.dataset.loadFailed='true';overlay.hidden=true;overlay.setAttribute('aria-hidden','true');};
+  photo.src=BIRTHDAY_IMAGE_PATH;
+ }
+ const ready=photo.complete&&photo.naturalWidth>0;
+ overlay.hidden=!ready;
+ overlay.setAttribute('aria-hidden',String(!ready));
+}
 function render(){
  if(auto)viewedDate=bangkokParts().date;
  const renderKey=[tab,viewedDate,selectedMonth,$('app').classList.contains('fullscreen-mode')].join('|');
@@ -411,6 +430,7 @@ function render(){
  $('screen').classList.toggle('weekday-monitor-layout',$('app').classList.contains('fullscreen-mode')&&tab==='duty'&&!dutyHoliday(viewedDate,data));
  $('screen').innerHTML=erSyncStatus()+(monthly?renderMonth():tab==='opd'?renderOpd():renderDuty());
  applyFullscreenDutyShading();
+ updateBirthdayOverlay();
  $('screen').scrollTop=keepScroll;
  lastRenderKey=renderKey;
  $('demo-banner').hidden=!data.demo;$('sync-time').textContent=lastSyncLabel(data.syncedAt);$('refresh-btn').disabled=!(hasConnection()||ER_SYNC_CONFIG.feedUrl)||syncing;renderFilter();scheduleMonitorFit();
@@ -486,6 +506,7 @@ const orDay=e.target.closest('[data-or-day]');
  const mode=e.target.closest('[data-opd-mode]');if(mode){opdMode=mode.dataset.opdMode;filterOpen=false;render();return;}const b=e.target.closest('[data-dept]');if(b){monthDept=b.dataset.dept;monthMode='dept';selectedMonth=viewedDate.slice(0,7);tab='month';filterOpen=false;setPreference('monthDept',monthDept);render();}};
  $('screen').onchange=e=>{if(e.target.id==='month-person'){personName=canonicalName(e.target.value);setPreference('monthPerson',personName);render();return;}if(e.target.id==='month-dept'){monthDept=e.target.value;setPreference('monthDept',monthDept);render();}};
  window.addEventListener('online',()=>{sync();syncOpdHolidays();});document.addEventListener('visibilitychange',()=>{if(!document.hidden){render();if(Date.now()-Date.parse(data.syncedAt||0)>300000)sync();}});
+ setInterval(updateBirthdayOverlay,1000); // strict 20:15 / 20:30 and half-hour boundaries
  setInterval(()=>{render();if(document.visibilityState==='visible'&&Date.now()-Date.parse(data.syncedAt||0)>300000)sync();},30000);
 }
 async function boot(){try{const cached=await loadSnapshot();if(cached?.entries?.length&&cached.spreadsheetId===config.spreadsheetId)data=cached.erFeed?overlayER(cached,cached.erFeed,ER_SYNC_CONFIG):cached;}catch{}data.opdHolidays=getPreference('opdHolidayDates',null);rebuild();init();render();if(navigator.onLine){sync();syncOpdHolidays();}if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
