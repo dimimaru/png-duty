@@ -7,7 +7,7 @@ import {renderOrSchedule,orWeekStart} from './or-ui.js';
 import {fetchOpdHolidayOverrides} from './sheets.js';
 import {fetchGoogleSheet} from './sheets.js';
 import {DEPT_LABELS,DEPT_ORDER,INTERN_NAMES,DUTY_MAP} from './parser.js';
-import {bangkokParts,nextDate,lastSyncLabel,dailyColumns,fullscreenColumns,fullscreenDutyPhase,continuousDutyNames} from './schedule.js';
+import {bangkokParts,nextDate,lastSyncLabel,dailyColumns,fullscreenColumns,fullscreenDutyPhase,continuousDutyNames,activeErSlot} from './schedule.js';
 import {BIRTHDAY_IMAGE_PATH,birthdaySlideActive} from './birthday.js';
 import {loadSnapshot,saveSnapshot,getPreference,setPreference} from './storage.js';
 import {makeDemo} from './demo.js';
@@ -191,14 +191,17 @@ function erSyncStatus(){
  const text=feed?'ER-duty · ฉบับจริง รุ่น '+feed.revision+' · ต่างจาก Sheet '+differences+' ช่อง':'ER ยังใช้ Google Sheet · รอตารางฉบับจริงจาก ER-duty';
  return '<div class="er-sync-status">'+esc(text)+(erSyncError?'<small>'+esc(erSyncError)+' · คงข้อมูลล่าสุดที่อ่านสำเร็จ</small>':'')+'</div>';
 }
+function markErShift(html,key,date){
+ return html.replace('<div ',`<div data-er-shift="${esc(key)}" data-er-date="${esc(date)}" `);
+}
 function erAssignment(raw,date,key,title=''){
  const companions=erCompanions(raw,date);
  let html=card(companions.length?first(raw):(key==='morning'?raw:first(raw)),{title,backup:key==='morning'&&!companions.length,companions});
  const comparison=data.erComparisons?.[date+'|'+key];
- if(!comparison?.different)return html;
+ if(!comparison?.different)return markErShift(html,key,date);
  const badge='<span class="er-sync-warning" aria-label="ชื่อจากสองแหล่งไม่ตรงกัน">!!</span>';
  html=raw?html.replace('<div class="staff-line">','<div class="staff-line">'+badge):'<div class="assignment er-empty-conflict">'+badge+'<span>ยังไม่ระบุแพทย์ใน ER-duty</span></div>';
- return '<div class="er-sync-cell conflict">'+html+'<details class="er-sync-details"><summary>เปรียบเทียบชื่อ</summary><div>ER-duty: '+esc(comparison.erNames.join(' / ')||'ว่าง')+'</div><div>Google Sheet: '+esc(comparison.sheetNames.join(' / ')||(comparison.sheetAvailable?'ว่าง':'ยังไม่มีข้อมูลวันที่นี้'))+'</div><small>ER รุ่น '+comparison.revision+' · Sheet '+esc(lastSyncLabel(comparison.sheetSyncedAt))+'</small></details></div>';
+ return markErShift('<div class="er-sync-cell conflict">'+html+'<details class="er-sync-details"><summary>เปรียบเทียบชื่อ</summary><div>ER-duty: '+esc(comparison.erNames.join(' / ')||'ว่าง')+'</div><div>Google Sheet: '+esc(comparison.sheetNames.join(' / ')||(comparison.sheetAvailable?'ว่าง':'ยังไม่มีข้อมูลวันที่นี้'))+'</div><small>ER รุ่น '+comparison.revision+' · Sheet '+esc(lastSyncLabel(comparison.sheetSyncedAt))+'</small></details></div>',key,date);
 }
 function erRow(cols){
  const dayDate=cols.find(c=>c.key==='in')?.date||viewedDate;
@@ -206,7 +209,7 @@ function erRow(cols){
  const nightDate=cols.find(c=>c.key==='out')?.date||viewedDate;
  const shift=(key,title,date)=>erShiftNames(date,key).map(n=>erAssignment(n,date,key,title)).join('')||empty();
  const out=`<div class="er-split">${shift('evening','ER บ่าย',nightDate)}${shift('night','ER ดึก',nightDate)}</div>`;
- if(dutyHoliday(viewedDate,data))return `<div class="matrix-row" data-department="ER"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="holiday-er">${day}${shift('evening','ER บ่าย',viewedDate)}${shift('night','ER ดึก',viewedDate)}</div></div>`;
+ if(dutyHoliday(viewedDate,data)){const now=bangkokParts(),activeNightDate=auto&&now.date===viewedDate&&now.minutes<480?nightDate:viewedDate;return `<div class="matrix-row" data-department="ER"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="holiday-er">${day}${shift('evening','ER บ่าย',viewedDate)}${shift('night','ER ดึก',activeNightDate)}</div></div>`;}
  return `<div class="matrix-row" data-department="ER"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="dept-grid">${cols.map(c=>`<div class="duty-cell${c.preview?' upcoming-in-shift':''}" data-duty-slot="${c.key}">${c.key==='in'?day:out}</div>`).join('')}</div></div>`;
 }
 function transportRow(cols){
@@ -413,12 +416,23 @@ function applyFullscreenDutyShading(){
    if(continuous.has(assignment.dataset.dutyPerson))assignment.classList.add('continuous-duty');
  }
  for(const cell of screen.querySelectorAll('.duty-cell[data-duty-slot]')){
+  if(cell.closest('[data-department="ER"]'))continue;
   if(phase.transition){
    cell.classList.add(cell.dataset.dutySlot===phase.mutedKey?'handover-muted':'handover-colored');
   }else if(cell.dataset.dutySlot===phase.mutedKey){
    cell.classList.add('fullscreen-muted');
   }
  }
+}
+// ER colour follows its own three duty shifts, not the general two-column fade.
+function applyErShiftShading(){
+ if(tab!=='duty'||!auto)return;
+ const now=bangkokParts();
+ if(viewedDate!==now.date)return;
+ const active=activeErSlot(now.minutes);
+ const activeDate=active==='night'&&now.minutes<480?nextDate(now.date,-1):now.date;
+ for(const el of $('screen').querySelectorAll('[data-department="ER"] [data-er-shift]'))
+  el.classList.toggle('er-shift-inactive',el.dataset.erShift!==active||el.dataset.erDate!==activeDate);
 }
 function updateFullscreenDutyPeriodLabel(){
  const label=$('duty-period-label');
@@ -465,6 +479,7 @@ function render(){
  $('screen').classList.toggle('weekday-monitor-layout',$('app').classList.contains('fullscreen-mode')&&tab==='duty'&&!dutyHoliday(viewedDate,data));
  $('screen').innerHTML=erSyncStatus()+(monthly?renderMonth():tab==='opd'?renderOpd():renderDuty());
  applyFullscreenDutyShading();
+ applyErShiftShading();
  updateBirthdayOverlay();
  $('screen').scrollTop=keepScroll;
  lastRenderKey=renderKey;
