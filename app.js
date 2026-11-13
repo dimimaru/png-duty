@@ -6,7 +6,7 @@ import {OR_DOCTORS,orOwnerSlots} from './or.js';
 import {renderOrSchedule,orWeekStart} from './or-ui.js';
 import {fetchOpdHolidayOverrides} from './sheets.js';
 import {fetchGoogleSheet} from './sheets.js';
-import {DEPT_LABELS,DEPT_ORDER,INTERN_NAMES} from './parser.js';
+import {DEPT_LABELS,DEPT_ORDER,INTERN_NAMES,DUTY_MAP} from './parser.js';
 import {bangkokParts,nextDate,lastSyncLabel,dailyColumns,fullscreenColumns,fullscreenDutyPhase,continuousDutyNames} from './schedule.js';
 import {BIRTHDAY_IMAGE_PATH,birthdaySlideActive} from './birthday.js';
 import {loadSnapshot,saveSnapshot,getPreference,setPreference} from './storage.js';
@@ -18,6 +18,8 @@ const parts=raw=>String(raw??'').split('/').map(canonicalName).filter(Boolean);
 const first=raw=>parts(raw)[0]||'';
 const isInternEntry=e=>/^(?:intern(?:\s|$)|1st call)/i.test(e.role||'');
 let data=makeDemo(),config=getPreference('connection',DEFAULT_CONFIG),tab='duty',viewedDate=bangkokParts().date,selectedMonth=viewedDate.slice(0,7),auto=true,filterOpen=false;
+let excludedConsultRoles=getPreference('consultRolesExcluded',[]),expandedConsultDepts=new Set();
+if(!Array.isArray(excludedConsultRoles))excludedConsultRoles=[];
 let selectedDepts=getPreference('departments',DEPT_ORDER),selectedOpds=getPreference('opds-v4',[...OPD_GROUPS,'DENTAL']),monthDept=getPreference('monthDept','ER'),syncing=false;
 let opdMode='in',orLayout=getPreference('orLayout','day')==='week'?'week':'day',opdOverrides=getPreference('opdHolidayOverrides',[]),holidaySyncTime=getPreference('opdHolidaySyncTime','');
 let monthMode='dept',personName=canonicalName(getPreference('monthPerson',''));
@@ -98,6 +100,27 @@ function departmentColors(names){
  return assigned;
 }
 function entries(date,dept,key){return index.get(`${date}|${dept}|${key}`)||index.get(`${date.slice(0,7)}|${dept}|${key}`)||[];}
+// Every source subdepartment can be selected, including new PED roles from Sheets.
+const consultRoleId=e=>[e.dept,e.key,e.role].join('|');
+const roleVisible=e=>!excludedConsultRoles.includes(consultRoleId(e));
+const roleFilterActive=dept=>excludedConsultRoles.some(id=>id.startsWith(dept+'|'));
+const outRoleFilterActive=dept=>excludedConsultRoles.some(id=>id.startsWith(dept+'|out|'));
+function consultRoles(){
+ const all=new Map(DEPT_ORDER.map(dept=>[dept,new Map()]));
+ for(const e of [...DUTY_MAP,...(data.entries||[])])
+  if(all.has(e.dept)&&e.role&&['in','out','morning','evening','night'].includes(e.key))
+   all.get(e.dept).set(consultRoleId(e),{dept:e.dept,key:e.key,role:e.role});
+ return new Map([...all].map(([dept,roles])=>[dept,[...roles.values()]]));
+}
+function filteredOutHtml(date,dept){
+ if(!outRoleFilterActive(dept)){
+  const a=overnight(date,dept);
+  return a.name?card(a.name,{minor:a.minor}):empty();
+ }
+ return entries(date,dept,'out').filter(roleVisible).flatMap(e=>
+  e.names.map(raw=>card(raw,{title:roleTitle(e)||e.role,intern:isInternEntry(e)}))
+ ).join('')||empty();
+}
 function empty(){return '<div class="empty-cell">—</div>';}
 function personLink(name,cls='doctor'){
  const n=canonicalName(name);
@@ -112,7 +135,7 @@ function card(name,{title='',minor='',intern=false,backup=false,phone=false,comp
 }
 const roles={Stroke:'Stroke fast','ER / Refer':'ICU-ER-Refer','Consult ต่างแผนก':'ต่างแผนก','OPD / Ward':'OPD',Gyne:'GYN','ผู้ใหญ่ · Consult':'ผู้ใหญ่ · OPD/ต่างแผนก','ผู้ใหญ่ · ER / รพช.':'ผู้ใหญ่ · ER/Refer','เด็ก / วัยรุ่น':'จิตเวชเด็ก',OB:'OB'};
 function roleTitle(e){const r=e.role||'';if(roles[r])return roles[r];if(/NICU/i.test(r))return 'Refer NICU';if(/เด็กโต|PICU/.test(r))return 'เด็กโต / PICU';if(/^OPD1/.test(r))return 'OPD';if(/OPD2/.test(r))return 'ICU / ต่างแผนก';if(/พิเศษชั้น/.test(r))return 'พิเศษชั้น 5–6';if(/newborn|รับเด็ก/i.test(r))return 'NB / หลังคลอด';return '';}
-function morning(date,dept){
+function morning(date,dept,filterRoles=false){
  if(dutyHoliday(date,data)){const a=overnight(date,dept);return a.name?[{name:a.name}]:[];}
  if(dept==='NEURO'){
   const source=entries(date,'NEURO','in').find(e=>!isInternEntry(e));
@@ -122,9 +145,9 @@ function morning(date,dept){
  if(dept==='ANES')return [{name:'โทร 3203',phone:true}];
  const weekday=new Date(date+'T12:00:00Z').getUTCDay();
  if(['FORENSIC','MAXILO'].includes(dept)&&weekday>0&&weekday<6&&!(data.holidays||[]).includes(date)&&data.fixedWeekdayStaff?.[dept])return [{name:data.fixedWeekdayStaff[dept]}];
- let es=entries(date,dept,'in').filter(e=>!isInternEntry(e));
- if(!es.length&&['SURG','ORTHO','NEURO','URO','ENT','FORENSIC','MAXILO'].includes(dept))es=entries(date,dept,'out').filter(e=>!isInternEntry(e)).slice(0,1);
- return es.flatMap(e=>e.names.map(name=>({name:first(name),title:roleTitle(e)})));
+ let es=entries(date,dept,'in').filter(e=>!isInternEntry(e)&&(!filterRoles||roleVisible(e)));
+ if(!es.length&&['SURG','ORTHO','NEURO','URO','ENT','FORENSIC','MAXILO'].includes(dept))es=entries(date,dept,'out').filter(e=>!isInternEntry(e)&&(!filterRoles||roleVisible(e))).slice(0,1);
+ return es.flatMap(e=>e.names.map(name=>({name:first(name),title:roleTitle(e)||(filterRoles&&roleFilterActive(dept)?e.role:'')})));
 }
 function overnight(date,dept){
  const es=entries(date,dept,'out'),staff=es.find(e=>!isInternEntry(e)),trainee=es.find(e=>isInternEntry(e));
@@ -139,12 +162,12 @@ function departmentLabel(dept){
  return `<span class="dept-label-text">${label.split('\n').map(esc).join('<br>')}</span>${icons[dept]?`<span class="dept-emoji" aria-hidden="true">${icons[dept]}</span>`:''}`;
 }
 function departmentRow(dept,cols){
- if(dutyHoliday(viewedDate,data)){const a=overnight(viewedDate,dept);return `<div class="matrix-row" data-department="${dept}"><button class="dept-tag" data-dept="${dept}">${departmentLabel(dept)}</button><div class="dept-grid"><div class="shared-cell${['MED','PED','OB-GYN','PSY'].includes(dept)?' monitor-large-out':''}">${a.name?card(a.name,{minor:a.minor}):empty()}</div></div></div>`;}
- const ins=cols.find(c=>c.key==='in'),outs=cols.find(c=>c.key==='out'),am=morning(ins.date,dept),pm=overnight(outs.date,dept);
+ if(dutyHoliday(viewedDate,data))return `<div class="matrix-row" data-department="${dept}"><button class="dept-tag" data-dept="${dept}">${departmentLabel(dept)}</button><div class="dept-grid"><div class="shared-cell${['MED','PED','OB-GYN','PSY'].includes(dept)?' monitor-large-out':''}">${filteredOutHtml(viewedDate,dept)}</div></div></div>`;
+ const ins=cols.find(c=>c.key==='in'),outs=cols.find(c=>c.key==='out'),am=morning(ins.date,dept,true),pm=overnight(outs.date,dept);
  const richMonitor=$('app').classList.contains('fullscreen-mode')&&['MED','PED','OB-GYN','PSY'].includes(dept);
- const match=!richMonitor&&dept!=='EYE'&&ins.date===outs.date?am.findIndex(a=>a.name&&a.name===pm.name&&!a.phone):-1,remaining=am.filter((_,i)=>i!==match);
+ const match=!roleFilterActive(dept)&&!richMonitor&&dept!=='EYE'&&ins.date===outs.date?am.findIndex(a=>a.name&&a.name===pm.name&&!a.phone):-1,remaining=am.filter((_,i)=>i!==match);
  const monitor=$('app').classList.contains('fullscreen-mode'),stackedIn=monitor&&['MED','PED'].includes(dept);
- const inHtml=stackedIn?`<div class="monitor-in-stack${dept==='MED'?' monitor-med-grid':''}" style="--in-cols:${dept==='MED'?2:Math.max(1,Math.ceil(remaining.length/3))};--in-rows:${dept==='MED'?Math.max(1,Math.ceil(remaining.length/2)):Math.max(1,Math.min(3,remaining.length))}">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=pm.name?card(pm.name,{minor:pm.minor}):empty();
+ const inHtml=stackedIn?`<div class="monitor-in-stack${dept==='MED'?' monitor-med-grid':''}" style="--in-cols:${dept==='MED'?2:Math.max(1,Math.ceil(remaining.length/3))};--in-rows:${dept==='MED'?Math.max(1,Math.ceil(remaining.length/2)):Math.max(1,Math.min(3,remaining.length))}">${remaining.map(a=>card(a.name,a)).join('')||empty()}</div>`:remaining.map(a=>card(a.name,a)).join('')||empty(),outHtml=filteredOutHtml(outs.date,dept);
  const shared=match>=0?`<div class="shared-cell${am[match].title?' with-shared-role':''}">${am[match].title?`<span class="shared-role" style="left:${cols[0].key==='in'?'0':'50%'}">${esc(am[match].title)}</span>`:''}${card(pm.name,{minor:pm.minor})}</div>`:'';
  const rest=match>=0?(remaining.length?`<div class="duty-cell" style="grid-column:${cols[0].key==='in'?1:2}">${inHtml}</div>`:''):cols.map(c=>`<div class="duty-cell${richMonitor&&c.key==='out'?' monitor-large-out':''}${c.preview?' upcoming-in-shift':''}" data-duty-slot="${c.key}">${c.key==='in'?inHtml:outHtml}</div>`).join('');
  return `<div class="matrix-row${am.length===1&&match>=0?' monitor-compact':''}" data-department="${dept}"><button class="dept-tag" data-dept="${dept}">${departmentLabel(dept)}</button><div class="dept-grid">${shared}${rest}</div></div>`;
@@ -206,14 +229,15 @@ function renderDuty(){
    if(d==='ER')return 1.5;
    if(d==='TRANSPORT')return 1;
    if(['SURG','ORTHO'].includes(d))return 1.25;
-   const am=morning(ins.date,d),pm=overnight(outs.date,d);
+   const am=morning(ins.date,d,true),pm=overnight(outs.date,d);
    if(am.length===1&&am[0].name===pm.name&&!am[0].title)return .65;
    if(d==='MED'&&!dutyHoliday(viewedDate,data))return 2.6;
    if(d==='PED'&&!dutyHoliday(viewedDate,data))return 3;
    return Math.max(1,am.length*1.1);
   };
   const sameStaff=d=>{
-   const am=morning(ins.date,d),pm=overnight(outs.date,d);
+   if(roleFilterActive(d))return false;
+   const am=morning(ins.date,d,true),pm=overnight(outs.date,d);
    return ins.date===outs.date&&am.length===1&&!!pm.name&&am[0].name===pm.name;
   };
   const consumed=new Set(),units=[];
@@ -336,9 +360,20 @@ function renderMonth(){
 }
 function renderFilter(){
  const isOpd=tab==='opd',all=isOpd?opdChoices():DEPT_ORDER,selected=isOpd?selectedOpds:selectedDepts;
- $('filter-panel').hidden=!filterOpen||tab==='month'||(isOpd&&opdMode==='or');$('filter-btn').setAttribute('aria-expanded',String(filterOpen));
- $('filter-panel').innerHTML=`<div class="filter-title">${isOpd?'เลือก OPD':'เลือกแผนก'}<button id="select-all">เลือกทั้งหมด</button></div><div class="filter-options">${all.map(d=>`<label><input class="filter-check" type="checkbox" value="${d}" ${selected.includes(d)?'checked':''}>${esc(isOpd?OPD_LABELS[d]||d:DEPT_LABELS[d]||d)}</label>`).join('')}</div>`;
+ $('filter-panel').hidden=!filterOpen||tab==='month'||(isOpd&&opdMode==='or');
+ $('filter-btn').setAttribute('aria-expanded',String(filterOpen));
+ const title=`<div class="filter-title">${isOpd?'เลือก OPD':'เลือกแผนกและแผนกย่อย'}<button id="select-all">เลือกทั้งหมด</button></div>`;
+ if(isOpd){
+  $('filter-panel').innerHTML=title+`<div class="filter-options">${all.map(d=>`<label><input class="filter-check" type="checkbox" value="${d}" ${selected.includes(d)?'checked':''}>${esc(OPD_LABELS[d]||d)}</label>`).join('')}</div>`;
+  return;
+ }
+ const groups=consultRoles();
+ $('filter-panel').innerHTML=title+'<div class="consult-filter-list">'+all.map(dept=>{
+  const roles=groups.get(dept)||[],enabled=roles.filter(roleVisible).length;
+  return `<section class="consult-filter-group"><div class="consult-filter-heading"><label><input class="filter-check" type="checkbox" value="${dept}" ${selected.includes(dept)?'checked':''}>${esc(DEPT_LABELS[dept]||dept)}</label><button type="button" data-only-dept="${dept}">เฉพาะแผนก</button></div>${roles.length?`<details class="consult-subdetails" data-role-dept="${dept}" ${expandedConsultDepts.has(dept)?'open':''}><summary>แผนกย่อย ${enabled}/${roles.length}</summary><div class="consult-suboptions">${roles.map(role=>{const id=consultRoleId(role),name=roleTitle(role)||role.role;return `<div class="consult-suboption"><label><input type="checkbox" class="filter-role-check" value="${esc(id)}" ${roleVisible(role)?'checked':''}><span>${esc(name)}</span></label><button type="button" data-only-role="${esc(id)}" data-role-parent="${dept}">เฉพาะ</button></div>`;}).join('')}</div></details>`:''}</section>`;
+ }).join('')+'</div>';
 }
+
 let monitorFitFrame=0,lastRenderKey='';
 function scheduleMonitorFit(){
  if(monitorFitFrame)cancelAnimationFrame(monitorFitFrame);
@@ -493,8 +528,28 @@ function init(){
  $('prev-month').onclick=()=>moveMonth(-1);$('next-month').onclick=()=>moveMonth(1);$('month-input').onchange=e=>{if(e.target.value)selectedMonth=e.target.value;render();};
  $('today-btn').onclick=()=>{if(tab==='month')selectedMonth=bangkokParts().date.slice(0,7);else{auto=true;viewedDate=bangkokParts().date;}render();};
  $('refresh-btn').onclick=sync;$('filter-btn').onclick=()=>{filterOpen=!filterOpen;renderFilter();};
- $('filter-panel').onchange=e=>{if(!e.target.matches('.filter-check'))return;const opd=tab==='opd';let list=opd?selectedOpds:selectedDepts;list=e.target.checked?[...new Set([...list,e.target.value])]:list.filter(x=>x!==e.target.value);if(opd)selectedOpds=list;else selectedDepts=list;setPreference(opd?'opds-v4':'departments',list);render();};
- $('filter-panel').onclick=e=>{if(e.target.id!=='select-all')return;if(tab==='opd')selectedOpds=[...new Set([...OPD_GROUPS,'DENTAL'])];else selectedDepts=[...DEPT_ORDER];setPreference(tab==='opd'?'opds-v4':'departments',tab==='opd'?selectedOpds:selectedDepts);render();};
+ $('filter-panel').onchange=e=>{
+ if(e.target.matches('.filter-role-check')){
+  excludedConsultRoles=e.target.checked?excludedConsultRoles.filter(id=>id!==e.target.value):[...new Set([...excludedConsultRoles,e.target.value])];
+  setPreference('consultRolesExcluded',excludedConsultRoles);render();return;
+ }
+ if(!e.target.matches('.filter-check'))return;const opd=tab==='opd';let list=opd?selectedOpds:selectedDepts;list=e.target.checked?[...new Set([...list,e.target.value])]:list.filter(x=>x!==e.target.value);if(opd)selectedOpds=list;else selectedDepts=list;setPreference(opd?'opds-v4':'departments',list);render();};
+ $('filter-panel').onclick=e=>{
+ const summary=e.target.closest('summary');
+ if(summary?.parentElement?.dataset.roleDept){
+  const dept=summary.parentElement.dataset.roleDept;
+  if(expandedConsultDepts.has(dept))expandedConsultDepts.delete(dept);else expandedConsultDepts.add(dept);
+  return;
+ }
+ const onlyRole=e.target.closest('[data-only-role]');
+ if(onlyRole){
+  const dept=onlyRole.dataset.roleParent,id=onlyRole.dataset.onlyRole,roles=consultRoles().get(dept)||[];
+  selectedDepts=[dept];excludedConsultRoles=[...excludedConsultRoles.filter(x=>!x.startsWith(dept+'|')),...roles.filter(role=>consultRoleId(role)!==id).map(consultRoleId)];
+  setPreference('departments',selectedDepts);setPreference('consultRolesExcluded',excludedConsultRoles);filterOpen=false;render();return;
+ }
+ const onlyDept=e.target.closest('[data-only-dept]');
+ if(onlyDept){selectedDepts=[onlyDept.dataset.onlyDept];setPreference('departments',selectedDepts);filterOpen=false;render();return;}
+ if(e.target.id!=='select-all')return;if(tab==='opd')selectedOpds=[...new Set([...OPD_GROUPS,'DENTAL'])];else {selectedDepts=[...DEPT_ORDER];excludedConsultRoles=[];setPreference('consultRolesExcluded',excludedConsultRoles);}setPreference(tab==='opd'?'opds-v4':'departments',tab==='opd'?selectedOpds:selectedDepts);render();};
  $('screen').onclick=e=>{
  const person=e.target.closest('[data-person]');
  if(person){personName=canonicalName(person.dataset.person);monthMode='person';selectedMonth=tab==='month'?selectedMonth:viewedDate.slice(0,7);tab='month';filterOpen=false;setPreference('monthPerson',personName);render();return;}
