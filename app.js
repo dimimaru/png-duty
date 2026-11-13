@@ -203,17 +203,24 @@ function erAssignment(raw,date,key,title=''){
  html=raw?html.replace('<div class="staff-line">','<div class="staff-line">'+badge):'<div class="assignment er-empty-conflict">'+badge+'<span>ยังไม่ระบุแพทย์ใน ER-duty</span></div>';
  return markErShift('<div class="er-sync-cell conflict">'+html+'<details class="er-sync-details"><summary>เปรียบเทียบชื่อ</summary><div>ER-duty: '+esc(comparison.erNames.join(' / ')||'ว่าง')+'</div><div>Google Sheet: '+esc(comparison.sheetNames.join(' / ')||(comparison.sheetAvailable?'ว่าง':'ยังไม่มีข้อมูลวันที่นี้'))+'</div><small>ER รุ่น '+comparison.revision+' · Sheet '+esc(lastSyncLabel(comparison.sheetSyncedAt))+'</small></details></div>',key,date);
 }
+// Role filters affect today's consult display only; monthly history stays intact.
+function erVisibleNames(date,key){
+ if(!roleFilterActive('ER'))return erShiftNames(date,key);
+ const roleOptions=consultRoles().get('ER')?.filter(e=>e.key===key)||[];
+ if(roleOptions.length&&!roleOptions.some(roleVisible))return [];
+ return entries(date,'ER',key).filter(roleVisible).flatMap(e=>e.names);
+}
 function erRow(cols){
  const dayDate=cols.find(c=>c.key==='in')?.date||viewedDate;
- const day=erShiftNames(dayDate,'morning').map(n=>erAssignment(n,dayDate,'morning','ER เช้า')).join('')||empty();
+ const day=erVisibleNames(dayDate,'morning').map(n=>erAssignment(n,dayDate,'morning','ER เช้า')).join('')||empty();
  const nightDate=cols.find(c=>c.key==='out')?.date||viewedDate;
- const shift=(key,title,date)=>erShiftNames(date,key).map(n=>erAssignment(n,date,key,title)).join('')||empty();
+ const shift=(key,title,date)=>erVisibleNames(date,key).map(n=>erAssignment(n,date,key,title)).join('')||empty();
  const out=`<div class="er-split">${shift('evening','ER บ่าย',nightDate)}${shift('night','ER ดึก',nightDate)}</div>`;
  if(dutyHoliday(viewedDate,data)){const now=bangkokParts(),activeNightDate=auto&&now.date===viewedDate&&now.minutes<480?nightDate:viewedDate;return `<div class="matrix-row" data-department="ER"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="holiday-er">${day}${shift('evening','ER บ่าย',viewedDate)}${shift('night','ER ดึก',activeNightDate)}</div></div>`;}
  return `<div class="matrix-row" data-department="ER"><button class="dept-tag" data-dept="ER">${departmentLabel('ER')}</button><div class="dept-grid">${cols.map(c=>`<div class="duty-cell${c.preview?' upcoming-in-shift':''}" data-duty-slot="${c.key}">${c.key==='in'?day:out}</div>`).join('')}</div></div>`;
 }
 function transportRow(cols){
- const cells=cols.map(c=>{const h=entries(c.date,'TRANSPORT',c.key).flatMap(e=>e.names).map(n=>card(first(n))).join('')||empty();return `<div class="duty-cell transport-${c.key==='in'?'morning':'evening'}${c.preview?' upcoming-in-shift':''}" data-duty-slot="${c.key}">${c.key==='out'?`<div class="er-split">${h}<div class="night-blank"></div></div>`:h}</div>`;}).join('');
+ const cells=cols.map(c=>{const h=entries(c.date,'TRANSPORT',c.key).filter(roleVisible).flatMap(e=>e.names).map(n=>card(first(n))).join('')||empty();return `<div class="duty-cell transport-${c.key==='in'?'morning':'evening'}${c.preview?' upcoming-in-shift':''}" data-duty-slot="${c.key}">${c.key==='out'?`<div class="er-split">${h}<div class="night-blank"></div></div>`:h}</div>`;}).join('');
  return `<div class="matrix-row" data-department="TRANSPORT"><button class="dept-tag" data-dept="TRANSPORT">${departmentLabel('TRANSPORT')}</button><div class="dept-grid transport-grid">${cells}</div></div>`;
 }
 function renderDuty(){
@@ -362,6 +369,7 @@ function renderMonth(){
  return tabs+(monthMode==='person'?renderPersonMonth():renderDepartmentMonth());
 }
 function renderFilter(){
+ const filterScroll=$('filter-panel').querySelector('.consult-filter-list')?.scrollTop||0;
  const isOpd=tab==='opd',all=isOpd?opdChoices():DEPT_ORDER,selected=isOpd?selectedOpds:selectedDepts;
  $('filter-panel').hidden=!filterOpen||tab==='month'||(isOpd&&opdMode==='or');
  $('filter-btn').setAttribute('aria-expanded',String(filterOpen));
@@ -375,6 +383,7 @@ function renderFilter(){
   const roles=groups.get(dept)||[],enabled=roles.filter(roleVisible).length;
   return `<section class="consult-filter-group"><div class="consult-filter-heading"><label><input class="filter-check" type="checkbox" value="${dept}" ${selected.includes(dept)?'checked':''}>${esc(DEPT_LABELS[dept]||dept)}</label><button type="button" data-only-dept="${dept}">เฉพาะแผนก</button></div>${roles.length?`<details class="consult-subdetails" data-role-dept="${dept}" ${expandedConsultDepts.has(dept)?'open':''}><summary>แผนกย่อย ${enabled}/${roles.length}</summary><div class="consult-suboptions">${roles.map(role=>{const id=consultRoleId(role),name=roleTitle(role)||role.role;return `<div class="consult-suboption"><label><input type="checkbox" class="filter-role-check" value="${esc(id)}" ${roleVisible(role)?'checked':''}><span>${esc(name)}</span></label><button type="button" data-only-role="${esc(id)}" data-role-parent="${dept}">เฉพาะ</button></div>`;}).join('')}</div></details>`:''}</section>`;
  }).join('')+'</div>';
+ $('filter-panel').querySelector('.consult-filter-list').scrollTop=filterScroll;
 }
 
 let monitorFitFrame=0,lastRenderKey='';
@@ -563,7 +572,7 @@ function init(){
   setPreference('departments',selectedDepts);setPreference('consultRolesExcluded',excludedConsultRoles);filterOpen=false;render();return;
  }
  const onlyDept=e.target.closest('[data-only-dept]');
- if(onlyDept){selectedDepts=[onlyDept.dataset.onlyDept];setPreference('departments',selectedDepts);filterOpen=false;render();return;}
+ if(onlyDept){const dept=onlyDept.dataset.onlyDept;selectedDepts=[dept];excludedConsultRoles=excludedConsultRoles.filter(id=>!id.startsWith(dept+'|'));setPreference('departments',selectedDepts);setPreference('consultRolesExcluded',excludedConsultRoles);filterOpen=false;render();return;}
  if(e.target.id!=='select-all')return;if(tab==='opd')selectedOpds=[...new Set([...OPD_GROUPS,'DENTAL'])];else {selectedDepts=[...DEPT_ORDER];excludedConsultRoles=[];setPreference('consultRolesExcluded',excludedConsultRoles);}setPreference(tab==='opd'?'opds-v4':'departments',tab==='opd'?selectedOpds:selectedDepts);render();};
  $('screen').onclick=e=>{
  const person=e.target.closest('[data-person]');
