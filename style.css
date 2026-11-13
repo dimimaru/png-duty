@@ -504,3 +504,28 @@
  object-fit:contain;
 }
 .birthday-overlay[hidden]{display:none!important}
+
+
+/* Hierarchical consult filters: source-defined roles for MED, PED, PSY, etc. */
+.consult-filter-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:min(53dvh,480px);overflow:auto;padding:1px 2px 5px}
+.consult-filter-group{border:1px solid #dce6ed;border-radius:8px;padding:8px;background:#fff;min-width:0}
+.consult-filter-heading{display:flex;align-items:center;justify-content:space-between;gap:4px;min-width:0}
+.consult-filter-heading label{font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;min-width:0}
+.consult-filter-heading input,.consult-suboption input{accent-color:#17638f;margin:0;flex:none}
+.consult-filter-heading button,.consult-suboption button{border:0;background:#edf5fb;color:#17638f;border-radius:5px;padding:3px 5px;font-size:9px;white-space:nowrap}
+.consult-subdetails{margin:7px 0 0;border-top:1px solid #edf1f5;padding-top:5px}
+.consult-subdetails summary{cursor:pointer;font-size:10px;font-weight:650;color:#49758f;list-style:revert;padding:3px 0}
+.consult-suboptions{display:flex;flex-direction:column;gap:4px;margin-top:5px}
+.consult-suboption{display:flex;align-items:center;gap:5px;justify-content:space-between;padding:3px 1px;min-width:0}
+.consult-suboption label{display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;line-height:1.4;overflow-wrap:anywhere}
+.consult-suboption label span{min-width:0}
+@media(max-width:480px){.consult-filter-list{grid-template-columns:1fr;max-height:48dvh}}
+.fullscreen-mode .consult-filter-list{max-height:38dvh}
+
+/* ER has three independent live shifts (08:00,16:00,23:00), unlike in/out departments. */
+[data-department="ER"] .er-shift-inactive.assignment,
+[data-department="ER"] .er-shift-inactive .assignment{
+ background:#e6e9ed!important;color:#88959f;filter:grayscale(1);opacity:.59;
+}
+[data-department="ER"] .er-shift-inactive .first-call{background:#e0e4e8;color:#88959f}
+[data-department="ER"] .er-shift-inactive.empty-cell{filter:grayscale(1);opacity:.59}
