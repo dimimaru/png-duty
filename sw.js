@@ -1,4 +1,4 @@
-const CACHE = 'png-duty-shell-v24-birthday-slide-20261111';
+const CACHE = 'png-duty-shell-v25-consult-role-er3-20261113';
 const SHELL = ['./', './index.html', './style.css', './app.js', './birthday.js', './parser.js', './schedule.js', './sheets.js', './storage.js', './demo.js', './config.js', './opd.js', './or.js', './or-ui.js', './names.js', './er-sync.js', './er-sync-config.js', './manifest.webmanifest','./assets/icon-192.png','./assets/icon-512.png','./assets/icon-180.png','./assets/birthday-53.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
