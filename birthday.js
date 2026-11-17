@@ -8,7 +8,12 @@ export function birthdaySlideActive(date,minutes){
  if(date==='2026-11-11')return minutes>=20*60+15&&minutes<20*60+30;
  // Temporary one-day override: 17 Nov 2026, 10:45–11:30 ICT, show continuously.
  // Outside this window retain the original rotating birthday-slide schedule.
- if(date==='2026-11-17'&&minutes>=10*60+45&&minutes<11*60+30)return true;
+ if(date==='2026-11-17'){
+  if(minutes>=10*60+45&&minutes<11*60+30)return true;
+  // The normal annual slide slot starts at 11:30; suppress its first five
+  // minutes today so the requested continuous display ends at exactly 11:30.
+  if(minutes>=11*60+30&&minutes<11*60+35)return false;
+ }
  if(!date.endsWith('-11-17'))return false;
  const first=8*60+30,last=16*60+30;
  return minutes>=first&&minutes<last&&(minutes-first)%30<5;
