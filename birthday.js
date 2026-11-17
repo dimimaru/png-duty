@@ -6,6 +6,9 @@ export const BIRTHDAY_IMAGE_PATH='./assets/birthday-53.png';
 export function birthdaySlideActive(date,minutes){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(date))||!Number.isInteger(minutes)||minutes<0||minutes>=1440)return false;
  if(date==='2026-11-11')return minutes>=20*60+15&&minutes<20*60+30;
+ // Temporary one-day override: 17 Nov 2026, 10:45–11:30 ICT, show continuously.
+ // Outside this window retain the original rotating birthday-slide schedule.
+ if(date==='2026-11-17'&&minutes>=10*60+45&&minutes<11*60+30)return true;
  if(!date.endsWith('-11-17'))return false;
  const first=8*60+30,last=16*60+30;
  return minutes>=first&&minutes<last&&(minutes-first)%30<5;
