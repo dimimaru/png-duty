@@ -112,12 +112,15 @@ function consultRoles(){
    all.get(e.dept).set(consultRoleId(e),{dept:e.dept,key:e.key,role:e.role});
  return new Map([...all].map(([dept,roles])=>[dept,[...roles.values()]]));
 }
-function filteredOutHtml(date,dept){
+function filteredOutHtml(date,dept,holiday=false){
  if(!outRoleFilterActive(dept)){
   const a=overnight(date,dept);
   return a.name?card(a.name,{minor:a.minor}):empty();
  }
- return entries(date,dept,'out').filter(roleVisible).flatMap(e=>
+ const visible=entries(date,dept,'out').filter(roleVisible);
+ // Holiday consult cards share one horizontal row: staff first, interns to the right.
+ if(holiday)visible.sort((a,b)=>Number(isInternEntry(a))-Number(isInternEntry(b)));
+ return visible.flatMap(e=>
   e.names.map(raw=>card(raw,{title:roleTitle(e)||e.role,intern:isInternEntry(e)}))
  ).join('')||empty();
 }
@@ -162,7 +165,7 @@ function departmentLabel(dept){
  return `<span class="dept-label-text">${label.split('\n').map(esc).join('<br>')}</span>${icons[dept]?`<span class="dept-emoji" aria-hidden="true">${icons[dept]}</span>`:''}`;
 }
 function departmentRow(dept,cols){
- if(dutyHoliday(viewedDate,data))return `<div class="matrix-row" data-department="${dept}"><button class="dept-tag" data-dept="${dept}">${departmentLabel(dept)}</button><div class="dept-grid"><div class="shared-cell${['MED','PED','OB-GYN','PSY'].includes(dept)?' monitor-large-out':''}">${filteredOutHtml(viewedDate,dept)}</div></div></div>`;
+ if(dutyHoliday(viewedDate,data))return `<div class="matrix-row" data-department="${dept}"><button class="dept-tag" data-dept="${dept}">${departmentLabel(dept)}</button><div class="dept-grid"><div class="shared-cell holiday-consult-cell${['MED','PED','OB-GYN','PSY'].includes(dept)?' monitor-large-out':''}">${filteredOutHtml(viewedDate,dept,true)}</div></div></div>`;
  const ins=cols.find(c=>c.key==='in'),outs=cols.find(c=>c.key==='out'),am=morning(ins.date,dept,true),pm=overnight(outs.date,dept);
  const richMonitor=$('app').classList.contains('fullscreen-mode')&&['MED','PED','OB-GYN','PSY'].includes(dept);
  const match=!roleFilterActive(dept)&&!richMonitor&&dept!=='EYE'&&ins.date===outs.date?am.findIndex(a=>a.name&&a.name===pm.name&&!a.phone):-1,remaining=am.filter((_,i)=>i!==match);
