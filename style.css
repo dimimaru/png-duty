@@ -529,3 +529,91 @@
 }
 [data-department="ER"] .er-shift-inactive .first-call{background:#e0e4e8;color:#88959f}
 [data-department="ER"] .er-shift-inactive.empty-cell{filter:grayscale(1);opacity:.59}
+
+
+/* Holiday consult only: one horizontal row for staff and intern cards.
+   Unfiltered first-call badges remain inline to the right of the staff name. */
+.holiday-consult-cell{
+ display:grid;
+ grid-auto-flow:column;
+ grid-auto-columns:minmax(0,1fr);
+ grid-template-rows:auto;
+ gap:4px;
+ min-width:0;
+}
+.holiday-consult-cell>.assignment{
+ min-width:0;
+ height:auto;
+ max-width:100%;
+ overflow:hidden;
+}
+.holiday-consult-cell .staff-line{
+ flex-direction:row;
+ flex-wrap:nowrap;
+ width:100%;
+ min-width:0;
+ max-width:100%;
+ white-space:nowrap;
+}
+.holiday-consult-cell .staff-line>.doctor,
+.holiday-consult-cell .staff-line>.first-call{
+ min-width:0;
+ max-width:100%;
+ white-space:nowrap;
+ overflow-wrap:normal;
+}
+.holiday-consult-cell .staff-line>.first-call{
+ flex:0 1 auto;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+.holiday-consult-cell .first-call .intern-name{white-space:nowrap}
+.fullscreen-mode .monitor-column .holiday-consult-cell{
+ grid-template-rows:minmax(0,1fr);
+ min-height:0;
+ height:100%;
+ overflow:hidden;
+}
+.fullscreen-mode .monitor-column .matrix-row:has(.holiday-consult-cell){
+ min-height:0;
+ overflow:hidden;
+}
+.fullscreen-mode .monitor-column .holiday-consult-cell>.assignment{
+ height:100%;
+ min-height:0;
+ padding:2px 4px;
+ gap:1px;
+ overflow:hidden;
+}
+.fullscreen-mode .monitor-column .holiday-consult-cell .staff-line{
+ flex-direction:row;
+ flex-wrap:nowrap;
+ gap:clamp(3px,.45vw,8px);
+ white-space:nowrap;
+}
+.fullscreen-mode .monitor-column .holiday-consult-cell .staff-line>.doctor{
+ white-space:nowrap;
+ overflow-wrap:normal;
+ line-height:1.15;
+}
+.fullscreen-mode .monitor-column .holiday-consult-cell .staff-line>.first-call{
+ flex:0 1 auto;
+ white-space:nowrap;
+ overflow-wrap:normal;
+}
+.fullscreen-mode .monitor-column .holiday-consult-cell .role{
+ min-width:0;
+ max-width:100%;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+ line-height:1.1;
+}
+.fullscreen-mode .monitor-column .holiday-consult-cell>.assignment:not(:only-child) .staff-line>.doctor{
+ font-size:clamp(13px,1.7vw,30px);
+}
+@media(orientation:landscape) and (max-height:640px){
+ .fullscreen-mode .monitor-column .holiday-consult-cell>.assignment{padding:1px 3px;gap:0}
+ .fullscreen-mode .monitor-column .holiday-consult-cell .role{font-size:9px}
+ .fullscreen-mode .monitor-column .holiday-consult-cell .staff-line>.first-call{font-size:9px;padding:1px 2px}
+}
