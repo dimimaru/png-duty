@@ -574,7 +574,7 @@
  height:100%;
  overflow:hidden;
 }
-.fullscreen-mode .monitor-column .matrix-row:has(.holiday-consult-cell){
+.fullscreen-mode .monitor-grid:not(.weekday-monitor) .monitor-column .matrix-row:not([data-department="ER"]):not([data-department="TRANSPORT"]){
  min-height:0;
  overflow:hidden;
 }
